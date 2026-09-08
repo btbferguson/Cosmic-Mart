@@ -42,44 +42,35 @@ The three agents are not independent tools. They share signals, feed each other 
 
 ## Directory
 cosmictrust/
-│
-├── README.md                          # Project overview + how to run
-│
-├── .env                               # API key goes here (never share this)
-│
-├── package.json                       # Dependencies
-│
+├── README.md
+├── .env
+├── .gitignore
+├── package.json
 ├── data/
-│   ├── mock_listings.js               # Agent 1 mock data (product listings)
-│   ├── mock_complaints.js             # Agent 2 mock data (customer complaints)
-│   └── mock_inventory.js              # Agent 3 mock data (SKU inventory)
-│
+│   ├── mock_listings.js
+│   ├── mock_complaints.js
+│   └── mock_inventory.js
 ├── state/
-│   └── sharedState.js                 # Shared state object (Kuria owns this)
-│
+│   └── sharedState.js
 ├── agents/
-│   ├── agent1_factchecker.js          # Agent 1 — Fact Checker (Bryant + Zeynep)
-│   ├── agent2_resolution.js           # Agent 2 — Customer Resolution (Devin)
-│   └── agent3_deadstock.js            # Agent 3 — DeadStock Zero (Kuria)
-│
+│   ├── agent1_factchecker.js
+│   ├── agent2_resolution.js
+│   └── agent3_deadstock.js
 ├── prompts/
-│   ├── prompt_agent1.js               # System prompt for Agent 1
-│   ├── prompt_agent2.js               # System prompt for Agent 2
-│   └── prompt_agent3.js               # System prompt for Agent 3
-│
+│   ├── prompt_agent1.js
+│   ├── prompt_agent2.js
+│   └── prompt_agent3.js
 ├── ui/
-│   ├── index.html                     # Main demo interface (Anshi)
-│   ├── styles.css                     # Styling
-│   └── app.js                         # Connects UI to agents
-│
+│   ├── index.html
+│   ├── styles.css
+│   └── app.js
 ├── tests/
-│   ├── test_agent1.js                 # Quick test for Agent 1
-│   ├── test_agent2.js                 # Quick test for Agent 2
-│   └── test_agent3.js                 # Quick test for Agent 3
-│
+│   ├── test_agent1.js
+│   ├── test_agent2.js
+│   └── test_agent3.js
 └── docs/
-    ├── CosmicTrust_Architecture.md    # Architecture doc (already done)
-    └── demo_script.md                 # Step by step demo instructions
+    ├── CosmicTrust_Architecture.md
+    └── demo_script.md
 
 ## Shared State Object
 
