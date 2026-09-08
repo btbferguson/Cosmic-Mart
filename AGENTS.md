@@ -15,7 +15,7 @@ CosmicTrust: a three-agent trust system for the Cosmic Mart case.
 The deliverable is a demo that survives fifteen minutes in front of judges — not
 production software. When you are choosing between "correct" and "working by
 Thursday," choose working by Thursday. Design detail lives in
-[`docs/CosmicTrust_Architecture.md`](docs/CosmicTrust_Architecture.md).
+[`CosmicTrust_Architecture.md`](CosmicTrust_Architecture.md).
 
 ---
 
@@ -33,8 +33,8 @@ Thursday," choose working by Thursday. Design detail lives in
 - **Never add a dependency without asking.** Every new package is lockfile drift
   for five other machines.
 - **Never write a real API key into any file.** Never commit `.env`.
-- **Never commit to `main`.** That is the branch we demo from. Work on `agent1`,
-  `agent2` or `agent3`.
+- **Never commit to `main`.** That is the branch we demo from. Work on `Agent-1`,
+  `Agent-2` or `Agent-3`.
 - **Guardrails go in code, not prompts.** A limit stated only in a system prompt
   is a suggestion. Enforce it in the function, then mention it in the prompt too.
 - **The human-in-the-loop step is not optional.** Agent 1 never has the final say
@@ -52,7 +52,7 @@ merge.
 | A | `src/agents/agent1_*`, `src/prompts/prompt_agent1.js`, `fixtures/agent1/` | [`src/agents/AGENT1_BRIEF.md`](src/agents/AGENT1_BRIEF.md) |
 | B | `src/agents/agent2_*`, `src/prompts/prompt_agent2.js`, `src/tools/`, `fixtures/agent2/` | [`src/agents/AGENT2_BRIEF.md`](src/agents/AGENT2_BRIEF.md) |
 | C | `src/agents/agent3_*`, `src/prompts/prompt_agent3.js`, `fixtures/agent3/` | [`src/agents/AGENT3_BRIEF.md`](src/agents/AGENT3_BRIEF.md) |
-| Integration | `src/llm.js`, `src/state.js`, `src/contracts.js`, `server.js`, `ui/`, `docs/` | — |
+| Integration | `src/llm.js`, `src/state.js`, `src/contracts.js`, `server.js`, `ui/`, the repo root | — |
 
 **Start by reading your brief.** It has your inputs, your outputs, the shared
 state you touch, and your definition of done.

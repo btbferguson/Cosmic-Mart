@@ -1,6 +1,6 @@
 # Agent 1 — Fact Checker
 
-**Pair A.** Branch `agent1`. Read [`/AGENTS.md`](../../AGENTS.md) first.
+**Pair A.** Branch `Agent-1`. Read [`/AGENTS.md`](../../AGENTS.md) first.
 
 Files you own:
 ```

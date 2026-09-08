@@ -3,7 +3,7 @@
 Agentic AI prototype for the **APEX Hackathon FY27 Cohort 1** — Cosmic Mart case.
 Team 06, Eastern Edge. Showcase: **Friday 11 September, 12:25pm ET**.
 
-Design lives in [`docs/CosmicTrust_Architecture.md`](docs/CosmicTrust_Architecture.md).
+Design lives in [`CosmicTrust_Architecture.md`](CosmicTrust_Architecture.md).
 This README is only about getting your machine ready to build.
 
 ---
@@ -166,7 +166,6 @@ harness/
 fixtures/        Recorded API responses, for running offline
 tests/           Smoke tests
 ui/              Demo interface
-docs/            Architecture and demo script
 ```
 
 ### The three files worth understanding before you start
@@ -196,7 +195,7 @@ merge conflicts mostly stop happening.
 | A | `src/agents/agent1_*`, `src/prompts/prompt_agent1.js`, `fixtures/agent1/` |
 | B | `src/agents/agent2_*`, `src/prompts/prompt_agent2.js`, `src/tools/`, `fixtures/agent2/` |
 | C | `src/agents/agent3_*`, `src/prompts/prompt_agent3.js`, `fixtures/agent3/` |
-| Integration | `src/llm.js`, `src/state.js`, `src/contracts.js`, `server.js`, `ui/`, `docs/` |
+| Integration | `src/llm.js`, `src/state.js`, `src/contracts.js`, `server.js`, `ui/`, the repo root |
 
 **Branches.** Work on `agent1`, `agent2`, `agent3`. Don't commit to `main`
 directly — that's the branch we demo from.
@@ -221,3 +220,23 @@ and the demo runs identically with no network at all.
 
 It's also handy day to day — if you're out of API credit, `replay` still lets you
 work on the UI.
+
+---
+
+# Agent 1 Data
+
+- Cosmic Mart Products
+    - All the products and their specs
+- Cosmic Mart Listings
+    - All the listings with the descriptions and claims
+
+ Here are the incorrect listings that should be flagged:
+  - SKU-1001 — listing says 300W and charges two devices simultaneously; spec says 15W, single device only
+  - SKU-1006 — listing claims active noise cancellation; spec says passive isolation only, no ANC hardware
+  - SKU-1008 — listing says 16 user profiles; spec says 8 maximum
+  - SKU-1010 — listing says "clinical-grade" heart rate accuracy; spec says 10–15% variance under movement
+  - SKU-1013 — listing says works on glass; spec explicitly excludes highly reflective glass
+  - SKU-1023 — listing says moulds overnight; spec says over time with regular wear
+  - SKU-1034 — listing says all components dishwasher safe; spec excludes the walnut stand
+  - SKU-1044 — listing claims reverses ageing in 2 weeks; no such claim in spec
+  - SKU-1050 — listing says scientifically proven for sleep; spec confirms no studies conducted

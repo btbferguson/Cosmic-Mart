@@ -1,6 +1,6 @@
 # Agent 2 — Customer Resolution
 
-**Pair B.** Branch `agent2`. Read [`/AGENTS.md`](../../AGENTS.md) first.
+**Pair B.** Branch `Agent-2`. Read [`/AGENTS.md`](../../AGENTS.md) first.
 
 Files you own:
 ```

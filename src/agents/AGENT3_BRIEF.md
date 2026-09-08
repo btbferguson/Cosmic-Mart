@@ -1,6 +1,6 @@
 # Agent 3 — DeadStock Zero
 
-**Pair C.** Branch `agent3`. Read [`/AGENTS.md`](../../AGENTS.md) first.
+**Pair C.** Branch `Agent-3`. Read [`/AGENTS.md`](../../AGENTS.md) first.
 
 Files you own:
 ```
