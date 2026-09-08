@@ -1,0 +1,17 @@
+# Secrets — never commit these. Each teammate has their own.
+.env
+.env.local
+*.key
+
+# Dependencies
+node_modules/
+
+# Logs and OS noise
+npm-debug.log*
+*.log
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

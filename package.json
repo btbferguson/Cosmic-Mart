@@ -1,0 +1,19 @@
+{
+  "name": "cosmictrust",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CosmicTrust - a three-agent trust system for Cosmic Mart. APEX Hackathon FY27 Cohort 1, Team 06 Eastern Edge.",
+  "engines": {
+    "node": ">=20.12.0"
+  },
+  "scripts": {
+    "check": "node --env-file-if-exists=.env harness/check_env.js",
+    "test": "node --test \"tests/**/*.test.js\"",
+    "ping": "node --env-file-if-exists=.env harness/ping.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0",
+    "express": "^5.1.0"
+  }
+}

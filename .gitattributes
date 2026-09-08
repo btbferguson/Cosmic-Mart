@@ -1,0 +1,12 @@
+# Normalise line endings so Windows and macOS teammates stop seeing phantom
+# whole-file diffs. Text files are LF in the repo, native on checkout.
+* text=auto
+
+*.js   text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+
+# Keep the lockfile out of code review diffs - it is generated, not authored.
+package-lock.json linguist-generated=true -diff
