@@ -26,17 +26,26 @@ one of the four strategic priorities.
 
 ## Input
 
-| Field | Type | Notes |
-|---|---|---|
-| `sku_id`, `sku_name`, `sku_description` | string | |
-| `current_stock` | number | units on hand |
-| `sales_velocity` | number | units per week |
-| `days_of_supply` | number | current_stock / sales_velocity * 7 |
-| `season_relevance` | seasonal / evergreen | seasonal decays faster, act earlier |
-| `competitor_price` | number | optional |
-| `market_region` | string | redistribution depends on it |
+Rows come from `cosmic_mart_inventory.csv`. Two signals come from shared state —
+not from the caller.
 
-Plus `return_spike_flag`, which you read from shared state — not from the caller.
+| Field | Source | Type | Notes |
+|---|---|---|---|
+| `sku_id` | inventory CSV | string | |
+| `product_name` | inventory CSV | string | |
+| `product_category` | inventory CSV | string | `gadgets` \| `fashion` \| `home and lifestyle` |
+| `current_stock` | inventory CSV | number | units on hand |
+| `sales_velocity_weekly` | inventory CSV | number | units sold per week |
+| `days_of_supply` | inventory CSV | number | pre-calculated: `current_stock / sales_velocity_weekly` |
+| `season_relevance` | inventory CSV | seasonal / evergreen | seasonal decays faster, act earlier |
+| `our_price` | inventory CSV | number | Cosmic Mart's current selling price |
+| `competitor_price` | inventory CSV | number | equivalent competitor price |
+| `return_rate_pct` | inventory CSV | number | percentage of units sold being returned |
+| `notes` | inventory CSV | string | context on why a SKU is at risk |
+| `return_spike_flag` | shared state | boolean | Agent 2 telling you this SKU is coming back |
+| `listing_decision` | shared state | object \| null | Agent 1's most recent decision for this SKU |
+
+---
 
 ## Output
 
@@ -87,7 +96,7 @@ everything is not smart, it is expensive.
 **Read** — before you build the prompt:
 
 ```js
-import { hasReturnSpike, sharedState } from '../state.js';
+import { hasReturnSpike, sharedState } from '../tools/state.js';
 ```
 
 - `hasReturnSpike(sku_id)` — Agent 2 telling you this SKU is coming back.
@@ -100,9 +109,24 @@ UI render it.
 
 ---
 
+## Data files for reference
+
+```
+src/data/cosmic_mart_inventory.csv   — inventory inputs
+```
+
+Good demo inputs: SKU-1001 (UltraCharge Pro — 4,200 units, 233 days of supply,
+return spike from Agent 2, listing blocked by Agent 1 → Cosmic Nexus), SKU-1028
+(SolsticeWool Beanie — 6,200 units, 144 days of supply, seasonal, no return spike
+→ redistribute or bundle), SKU-1004 (NovaScan X3 — 15 days of supply, healthy
+seller → no action, reorder alert).
+
+---
+
 ## Done when
 
 - [ ] Triages a SKU and returns contract-valid JSON
+- [ ] `validate('agent3', result)` passes
 - [ ] The model chooses the intervention; code only validates and can veto
 - [ ] A return spike always produces Cosmic Nexus, proven with a test
 - [ ] Never returns write-off
@@ -116,4 +140,4 @@ UI render it.
 ## Not yours
 
 The UI, the server, the shared state module, the other two agents.
-Do not edit `src/contracts.js`, `src/state.js` or `src/llm.js`.
+Do not edit `src/tools/contracts.js`, `src/tools/state.js` or `src/tools/llm.js`.
