@@ -41,6 +41,7 @@ The three agents are not independent tools. They share signals, feed each other 
 ---
 
 ## Directory
+```
 cosmictrust/
 ├── README.md
 ├── .env
@@ -71,6 +72,7 @@ cosmictrust/
 └── docs/
     ├── CosmicTrust_Architecture.md
     └── demo_script.md
+```
 
 ## Shared State Object
 
