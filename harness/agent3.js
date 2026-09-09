@@ -39,12 +39,15 @@ if (has('--help') || argv.length === 0) {
   console.log(`
 ${bold('DeadStock Zero')} — Cosmic Mart inventory recovery agent
 
-  npm run agent3 -- --sku SKU-1001    triage one SKU with full trace
-  npm run agent3 -- --all             triage every SKU
-  npm run agent3 -- --brief           weekly leadership roll-up
-  npm run agent3 -- --list            list SKUs (no model calls, no key needed)
+  npm run agent3 -- --sku SKU-1001              one SKU, full trace
+  npm run agent3 -- --sku SKU-1001,SKU-1028     several SKUs, full trace each
+  npm run agent3 -- --all                       triage every SKU, one line each
+  npm run agent3 -- --all --verbose             every SKU WITH the full trace
+  npm run agent3 -- --brief                     weekly leadership roll-up
+  npm run agent3 -- --list                      list SKUs (no model calls, no key)
 
-  --limit N                           with --all or --brief, stop after N SKUs
+  --limit N                                     with --all or --brief, cap the count
+  --verbose                                     show reasoning and tool calls in batch runs
 `);
   process.exit(0);
 }
@@ -121,20 +124,23 @@ async function runOne(skuId) {
   return result;
 }
 
-/** Triage many, one line each. */
-async function runMany(skuIds) {
+/**
+ * Triage many. One compact line each by default; with verbose, the same full
+ * trace --sku gives you, per SKU.
+ */
+async function runMany(skuIds, { verbose = false } = {}) {
   const results = [];
   let cost = 0;
 
   console.log('');
   for (const skuId of skuIds) {
     try {
-      const result = await assessSku(skuId);
+      const result = verbose ? await runOne(skuId) : await assessSku(skuId);
       results.push(result);
       cost += result.trace.usage.cost;
-      console.log(renderRow(result.sku, result.decision));
+      if (!verbose) console.log(renderRow(result.sku, result.decision));
     } catch (error) {
-      console.log(`  ${skuId.padEnd(9)}${dim('failed: ' + error.message.slice(0, 50))}`);
+      console.log(`  ${skuId.padEnd(9)}${dim('failed: ' + error.message.slice(0, 60))}`);
     }
   }
 
@@ -167,13 +173,25 @@ async function runMany(skuIds) {
  * ------------------------------------------------------------------ */
 
 try {
+  const verbose = has('--verbose');
+
   if (has('--sku')) {
-    const skuId = valueOf('--sku');
-    if (!skuId) throw new Error('--sku needs a SKU id, e.g. --sku SKU-1001');
-    await runOne(skuId.toUpperCase());
+    const ids = (valueOf('--sku') ?? '')
+      .split(',')
+      .map((id) => id.trim().toUpperCase())
+      .filter(Boolean);
+
+    if (ids.length === 0) {
+      throw new Error('--sku needs at least one SKU id, e.g. --sku SKU-1001,SKU-1028');
+    }
+
+    // One SKU prints just the trace. Several also print the roll-up at the end,
+    // so you can see the spread without scrolling back up.
+    if (ids.length === 1) await runOne(ids[0]);
+    else await runMany(ids, { verbose: true });
   } else if (has('--all') || has('--brief')) {
     const ids = loadInventory().map((row) => row.sku_id).slice(0, limit);
-    const results = await runMany(ids);
+    const results = await runMany(ids, { verbose });
 
     if (has('--brief')) {
       console.log(`  ${bold('WEEKLY DEAD STOCK BRIEF')}`);
