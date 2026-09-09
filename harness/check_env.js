@@ -66,21 +66,54 @@ if (fs.existsSync(path.join(ROOT, '.env'))) {
   fail('no .env file', 'copy .env.example to .env and paste your own API key');
 }
 
-/* 4. The key itself. */
-const key = process.env.ANTHROPIC_API_KEY;
+/* 4. The keys. Agents 1 and 2 use Anthropic; Agent 3 uses OpenRouter.
+      You only need the one for the agent you are building. */
+const real = (value, prefix) =>
+  Boolean(value) && value.startsWith(prefix) && !value.includes('paste-your-own');
 
-if (key && key.startsWith('sk-ant-') && !key.includes('paste-your-own')) {
-  pass('ANTHROPIC_API_KEY loaded', '(' + key.slice(0, 11) + '...' + key.slice(-4) + ')');
-} else if (mode === 'replay') {
-  warn('no API key, but COSMIC_LLM_MODE=replay so fixtures will be used');
-} else if (key) {
-  fail('ANTHROPIC_API_KEY looks like the placeholder', 'paste your real key into .env');
+const anthropicKey = process.env.ANTHROPIC_API_KEY;
+const openrouterKey = process.env.OPENROUTER_API_KEY;
+
+// Udacity/Vocareum issue voc- keys; direct Anthropic keys are sk-ant-.
+const haveAnthropic = real(anthropicKey, 'sk-ant-') || real(anthropicKey, 'voc-');
+const haveOpenRouter = real(openrouterKey, 'sk-or-');
+
+const mask = (value) => '(' + value.slice(0, 11) + '...' + value.slice(-4) + ')';
+
+if (haveAnthropic) {
+  const endpoint =
+    process.env.COSMIC_ANTHROPIC_BASE_URL ||
+    process.env.ANTHROPIC_BASE_URL ||
+    'https://api.anthropic.com';
+  pass('ANTHROPIC_API_KEY  loaded', mask(anthropicKey) + ' -> ' + endpoint);
+  if (anthropicKey.startsWith('voc-') && !endpoint.includes('vocareum')) {
+    fail(
+      'a voc- key is pointed at ' + endpoint,
+      'set COSMIC_ANTHROPIC_BASE_URL=https://claude.vocareum.com in .env'
+    );
+  }
+}
+if (haveOpenRouter) pass('OPENROUTER_API_KEY loaded', mask(openrouterKey));
+
+if (!haveAnthropic && !haveOpenRouter) {
+  if (mode === 'replay') {
+    warn('no API key, but COSMIC_LLM_MODE=replay so fixtures will be used');
+  } else if (anthropicKey || openrouterKey) {
+    fail('the API key in .env is still the placeholder', 'paste your real key into .env');
+  } else {
+    fail(
+      'no API key set',
+      'add ANTHROPIC_API_KEY (agents 1 and 2) or OPENROUTER_API_KEY (agent 3) to .env'
+    );
+  }
 } else {
-  fail('ANTHROPIC_API_KEY not set', 'paste your key into .env, or run with COSMIC_LLM_MODE=replay');
+  if (!haveAnthropic) warn('no ANTHROPIC_API_KEY', '(only needed for Agents 1 and 2)');
+  if (!haveOpenRouter) warn('no OPENROUTER_API_KEY', '(only needed for Agent 3)');
 }
 
 /* 5. Mode and model. */
-pass('model  ' + (process.env.COSMIC_MODEL || 'claude-sonnet-5 (default)'));
+pass('model  ' + (process.env.COSMIC_MODEL || 'claude-sonnet-5') +
+     '  /  ' + (process.env.OPENROUTER_MODEL || 'z-ai/glm-5.3-flash'));
 pass('mode   ' + mode);
 
 /* 6. Make sure nobody is about to commit their key. */

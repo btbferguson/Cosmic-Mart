@@ -29,6 +29,16 @@ export const MODE = process.env.COSMIC_LLM_MODE || 'live'; // live | record | re
 
 let client = null;
 
+/**
+ * Set once we learn this model rejects `temperature`.
+ *
+ * claude-sonnet-5 returns 400 "`temperature` is deprecated for this model".
+ * Rather than keep a list of which models accept it, we send it, notice the
+ * rejection, and stop sending it for the rest of the process. Costs one
+ * retry on the first call and then nothing.
+ */
+let temperatureRejected = false;
+
 function getClient() {
   if (client) return client;
 
@@ -45,8 +55,17 @@ function getClient() {
 
   client = new Anthropic({
     apiKey,
-    // Only set when pointing at an internal gateway; undefined uses the public API.
-    baseURL: process.env.ANTHROPIC_BASE_URL || undefined,
+    // COSMIC_ANTHROPIC_BASE_URL wins over ANTHROPIC_BASE_URL on purpose.
+    //
+    // Node's --env-file does NOT overwrite variables already present in the
+    // environment, and some machines have ANTHROPIC_BASE_URL set globally
+    // (pointing at api.anthropic.com). That silently overrode the value in
+    // .env and sent Vocareum voc- keys to Anthropic, which 401s. Reading a
+    // name nothing else sets makes .env authoritative again.
+    baseURL:
+      process.env.COSMIC_ANTHROPIC_BASE_URL ||
+      process.env.ANTHROPIC_BASE_URL ||
+      undefined,
   });
   return client;
 }
@@ -109,7 +128,11 @@ export async function callClaude({ agent, system, messages, tools, maxTokens = 1
   const request = {
     model: MODEL,
     max_tokens: maxTokens,
-    temperature: 0, // Deterministic. Do not raise this before the demo.
+    // Deterministic where the model still allows it. Newer models (claude-sonnet-5
+    // and up) reject `temperature` outright with a 400, so it is dropped
+    // automatically the first time that happens - see the retry loop below.
+    // Do not raise this above 0 for models that do accept it.
+    ...(temperatureRejected ? {} : { temperature: 0 }),
     system,
     messages,
     ...(tools?.length ? { tools } : {}),
@@ -134,6 +157,15 @@ export async function callClaude({ agent, system, messages, tools, maxTokens = 1
       return response;
     } catch (error) {
       lastError = error;
+
+      // The model does not accept `temperature`. Drop it and retry immediately;
+      // every later call in this process omits it too.
+      if (!temperatureRejected && /temperature/i.test(error?.message ?? '')) {
+        temperatureRejected = true;
+        delete request.temperature;
+        continue;
+      }
+
       if (!RETRYABLE.has(error?.status) || attempt === 3) throw error;
       await sleep(500 * 2 ** (attempt - 1)); // 500ms, then 1s
     }
