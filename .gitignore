@@ -15,3 +15,13 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Recorded API responses. Local only - they are large, they contain full
+# prompts and responses, and anyone can regenerate them with:
+#   COSMIC_LLM_MODE=record npm run agent3 -- --all
+fixtures/**/*.json
+
+# Third-party sample datasets. Kept locally, not committed - they are large
+# and nothing in the codebase reads them. Re-fetch with:
+#   python -c "import kagglehub; print(kagglehub.dataset_download('karkavelrajaj/amazon-sales-dataset'))"
+src/data/agent3/

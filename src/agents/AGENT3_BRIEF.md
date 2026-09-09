@@ -96,7 +96,7 @@ everything is not smart, it is expensive.
 **Read** — before you build the prompt:
 
 ```js
-import { hasReturnSpike, sharedState } from '../tools/state.js';
+import { hasReturnSpike, sharedState } from '../state.js';
 ```
 
 - `hasReturnSpike(sku_id)` — Agent 2 telling you this SKU is coming back.
@@ -126,7 +126,7 @@ seller → no action, reorder alert).
 ## Done when
 
 - [ ] Triages a SKU and returns contract-valid JSON
-- [ ] `validate('agent3', result)` passes
+- [ ] `validate('agent3', AGENT3_OUTPUT, result)` passes
 - [ ] The model chooses the intervention; code only validates and can veto
 - [ ] A return spike always produces Cosmic Nexus, proven with a test
 - [ ] Never returns write-off
@@ -140,4 +140,4 @@ seller → no action, reorder alert).
 ## Not yours
 
 The UI, the server, the shared state module, the other two agents.
-Do not edit `src/tools/contracts.js`, `src/tools/state.js` or `src/tools/llm.js`.
+Do not edit `src/contracts.js`, `src/state.js` or `src/llm.js`.
