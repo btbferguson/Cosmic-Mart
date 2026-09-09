@@ -47,21 +47,14 @@ Respond with ONLY a valid JSON object. No preamble, no explanation outside the o
   "confidence": "high" | "medium" | "low",
   "reason": "One concise sentence explaining the decision. No unsupported legal conclusions. No invented facts.",
   "recommendation_to_reviewer": "Specific actionable instruction if escalating — what to verify and why. Empty string for approved or auto-blocked.",
-  "complaint_signal": "Short kebab-case tag describing the specific issue type, e.g. claims-verified, unverified-health-language, false-statistic-in-claim, performance-claim-exaggerated, description-does-not-match"
+  "complaint_signal": "Short reusable kebab-case tag such as: misleading-description, unsupported-statistic, medical-claim, exaggerated-performance, no-signal"
 }
 
 Constraints:
 - reason must be exactly one sentence
 - recommendation_to_reviewer must be a specific, actionable, non-empty instruction when decision is escalate
 - recommendation_to_reviewer must be an empty string when decision is approved or auto-blocked
-- complaint_signal must be a short kebab-case tag that clearly describes the specific issue type
-- Use tags that are self-explanatory and distinct from each other. Good examples:
-    claims-verified                 (all claims check out — used on approved)
-    unverified-health-language      (health or wellness language with no clinical backing)
-    false-statistic-in-claim        (a specific number or percentage that is not supported)
-    performance-claim-exaggerated   (capability claim that overstates what the description supports)
-    description-does-not-match      (marketing copy contradicts or invents product details)
-  Bad examples (too vague or too similar to each other): medical-claim, misleading-claim, health-claim
+- complaint_signal must be a short kebab-case tag
 - Do not invent facts absent from the listing or complaint patterns
 - Do not state legal conclusions without direct evidence`;
 

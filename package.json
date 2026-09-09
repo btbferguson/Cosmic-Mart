@@ -10,7 +10,10 @@
   "scripts": {
     "check": "node --env-file-if-exists=.env harness/check_env.js",
     "test": "node --test \"tests/**/*.test.js\"",
-    "ping": "node --env-file-if-exists=.env harness/ping.js"
+    "ping": "node --env-file-if-exists=.env harness/ping.js",
+    "agent3": "node --env-file-if-exists=.env harness/agent3.js",
+    "demo": "node --env-file-if-exists=.env harness/demo.js",
+    "agent1": "node --env-file-if-exists=.env src/agents/agent1_run.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
