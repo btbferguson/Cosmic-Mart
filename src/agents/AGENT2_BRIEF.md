@@ -102,7 +102,7 @@ You are the source of both feedback loops. Skip these writes and the other two
 agents have nothing to react to, which means the demo has no story.
 
 ```js
-import { logComplaintPattern, flagReturnSpike, recordAction } from '../tools/state.js';
+import { logComplaintPattern, flagReturnSpike, recordAction } from '../state.js';
 ```
 
 - `logComplaintPattern({ complaint_pattern_tag, product_category, sku_id })` after
@@ -148,4 +148,4 @@ product question) shows the agent handling a non-complaint correctly.
 ## Not yours
 
 The UI, the server, the shared state module, the other two agents.
-Do not edit `src/tools/contracts.js`, `src/tools/state.js` or `src/tools/llm.js`.
+Do not edit `src/contracts.js`, `src/state.js` or `src/llm.js`.
