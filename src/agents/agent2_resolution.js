@@ -6,6 +6,7 @@ import { callClaude, extractJSON, textOf } from '../llm.js';
 import { logComplaintPattern, flagReturnSpike } from '../state.js';
 import { validate, AGENT2_OUTPUT } from '../contracts.js';
 import { TOOL_DEFS, toolHandlers } from '../tools/index.js';
+import { agentToolsForAnthropic, callAgentTool, isAgentTool } from './registry.js';
 import { buildPrompt } from '../prompts/prompt_agent2.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -63,7 +64,7 @@ function hasRepeatComplaint(customer_history) {
 
 // ── Main resolver ─────────────────────────────────────────────────────────────
 
-export async function resolve(complaint) {
+export async function resolve(complaint, { onAgentCall } = {}) {
   const product_category = skuToCategory[complaint.sku_id] ?? 'unknown';
   const enriched = { ...complaint, product_category };
 
@@ -98,7 +99,16 @@ export async function resolve(complaint) {
 
   let response;
   for (let turn = 0; turn < 5; turn++) {
-    response = await callClaude({ agent: 'agent2', system, messages, tools: TOOL_DEFS, maxTokens: 2048 });
+    response = await callClaude({
+      agent: 'agent2',
+      system,
+      messages,
+      // Own action tools, plus Agent 1 and Agent 3 as consultable agents.
+      // Asking Agent 3 whether stock still exists stops us promising a
+      // replacement from inventory that is on its way to donation.
+      tools: [...TOOL_DEFS, ...agentToolsForAnthropic('agent2')],
+      maxTokens: 2048,
+    });
 
     if (response.stop_reason === 'end_turn') break;
 
@@ -109,9 +119,17 @@ export async function resolve(complaint) {
       const toolResults = [];
       for (const block of response.content) {
         if (block.type !== 'tool_use') continue;
-        const fn = toolHandlers[block.name];
-        if (!fn) throw new Error(`Unknown tool requested by model: ${block.name}`);
-        const toolResult = await fn(block.input);
+        // Agent-to-agent consultations route through the registry; Agent 2's
+        // own money-moving tools stay in toolHandlers.
+        let toolResult;
+        if (isAgentTool(block.name)) {
+          toolResult = await callAgentTool(block.name, block.input, { stack: ['agent2'] });
+          onAgentCall?.(block.name, block.input, toolResult);
+        } else {
+          const fn = toolHandlers[block.name];
+          if (!fn) throw new Error(`Unknown tool requested by model: ${block.name}`);
+          toolResult = await fn(block.input);
+        }
         toolResults.push({
           type: 'tool_result',
           tool_use_id: block.id,

@@ -16,6 +16,7 @@ import {
   renderSignals,
   renderThinking,
   renderToolCall,
+  renderAgentCall,
   renderCard,
   renderRow,
   wrap,
@@ -108,6 +109,8 @@ async function runOne(skuId) {
         if (text) console.log(text);
       } else if (event.type === 'tool') {
         console.log(renderToolCall(event.name, event.result));
+      } else if (event.type === 'agentCall') {
+        console.log(renderAgentCall(event.name, event.result));
       }
     },
   });

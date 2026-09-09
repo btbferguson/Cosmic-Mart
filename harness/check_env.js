@@ -74,12 +74,25 @@ const real = (value, prefix) =>
 const anthropicKey = process.env.ANTHROPIC_API_KEY;
 const openrouterKey = process.env.OPENROUTER_API_KEY;
 
-const haveAnthropic = real(anthropicKey, 'sk-ant-');
+// Udacity/Vocareum issue voc- keys; direct Anthropic keys are sk-ant-.
+const haveAnthropic = real(anthropicKey, 'sk-ant-') || real(anthropicKey, 'voc-');
 const haveOpenRouter = real(openrouterKey, 'sk-or-');
 
 const mask = (value) => '(' + value.slice(0, 11) + '...' + value.slice(-4) + ')';
 
-if (haveAnthropic) pass('ANTHROPIC_API_KEY  loaded', mask(anthropicKey));
+if (haveAnthropic) {
+  const endpoint =
+    process.env.COSMIC_ANTHROPIC_BASE_URL ||
+    process.env.ANTHROPIC_BASE_URL ||
+    'https://api.anthropic.com';
+  pass('ANTHROPIC_API_KEY  loaded', mask(anthropicKey) + ' -> ' + endpoint);
+  if (anthropicKey.startsWith('voc-') && !endpoint.includes('vocareum')) {
+    fail(
+      'a voc- key is pointed at ' + endpoint,
+      'set COSMIC_ANTHROPIC_BASE_URL=https://claude.vocareum.com in .env'
+    );
+  }
+}
 if (haveOpenRouter) pass('OPENROUTER_API_KEY loaded', mask(openrouterKey));
 
 if (!haveAnthropic && !haveOpenRouter) {

@@ -94,6 +94,23 @@ export function renderToolCall(name, result) {
   return `  ${dim('tool')}      ${dim('→')} ${name} ${dim(detail)}`;
 }
 
+/**
+ * An agent consulting another agent. Rendered differently from a data lookup
+ * on purpose - this is the line that shows the system is a system.
+ */
+export function renderAgentCall(name, result) {
+  const who = name.includes('agent1') ? 'Agent 1' : 'Agent 2';
+  let detail;
+  if (result?.error) {
+    detail = result.error.slice(0, 48).replace(/\s+$/, '') + '...';
+  } else if (result?.decision) {
+    detail = `${result.decision} - ${result.reason ?? ''}`.slice(0, 52);
+  } else {
+    detail = result?.summary ?? '';
+  }
+  return `  ${dim('consult')}   ${bold('⇄ ' + who)}  ${dim(detail)}`;
+}
+
 /** The decision card. Same shape for every agent. */
 export function renderCard(decision) {
   const inner = WIDTH - 4;

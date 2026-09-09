@@ -25,13 +25,21 @@ import {
   extractJSON,
 } from '../openrouter.js';
 import { validate, AGENT3_OUTPUT } from '../contracts.js';
-import { hasReturnSpike, sharedState } from '../state.js';
+import { hasReturnSpike, sharedState, logInventoryAdvisory } from '../state.js';
 import { getEnrichedSku } from '../data/loadData.js';
 import { TOOL_DEFS, executeTool } from './agent3_tools.js';
+import { agentToolsFor, callAgentTool, isAgentTool } from './registry.js';
 import { SYSTEM_PROMPT, RESPONSE_FORMAT, buildUserPrompt } from '../prompts/prompt_agent3.js';
 
-/** Stop the model looping forever on tool calls. Four is generous for four tools. */
-const MAX_TOOL_TURNS = 4;
+/** Stop the model looping forever on tool calls. */
+const MAX_TOOL_TURNS = 5;
+
+/**
+ * What Agent 3 can reach for: its own read-only data lookups, plus Agent 1 and
+ * Agent 2 as consultable agents. Asking Agent 1 "is this listing actually
+ * misleading?" beats inferring it from a return rate.
+ */
+const ALL_TOOLS = [...TOOL_DEFS, ...agentToolsFor('agent3')];
 
 /* ------------------------------------------------------------------ *
  * Shared state
@@ -121,7 +129,7 @@ export async function assessSku(skuId, { onEvent = () => {} } = {}) {
   // calling anything - which is how you end up with a classifier wearing an
   // agent's clothes.
   for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
-    const response = await callModel({ agent: 'agent3', messages, tools: TOOL_DEFS });
+    const response = await callModel({ agent: 'agent3', messages, tools: ALL_TOOLS });
     account(response);
     trace.turns++;
 
@@ -151,9 +159,15 @@ export async function assessSku(skuId, { onEvent = () => {} } = {}) {
         // Leave args empty; executeTool reports a readable error back.
       }
 
-      const result = executeTool(call.function.name, args);
-      trace.toolCalls.push({ name: call.function.name, args, result });
-      onEvent({ type: 'tool', name: call.function.name, args, result });
+      const name = call.function.name;
+      const isAgent = isAgentTool(name);
+
+      const result = isAgent
+        ? await callAgentTool(name, args, { stack: ['agent3'] })
+        : executeTool(name, args);
+
+      trace.toolCalls.push({ name, args, result, agent: isAgent });
+      onEvent({ type: isAgent ? 'agentCall' : 'tool', name, args, result });
 
       messages.push({
         role: 'tool',
@@ -196,6 +210,25 @@ export async function assessSku(skuId, { onEvent = () => {} } = {}) {
   validate('agent3', AGENT3_OUTPUT, parsed);
 
   const decision = applyGuardrails(parsed, signals);
+
+  // Close the loop back toward Agent 2. Once stock is being donated or sent
+  // back to the supplier it is leaving the building, and customer service must
+  // stop offering replacements from it.
+  const leavingTheBuilding = ['cosmic nexus donation', 'supplier return'].includes(
+    decision.intervention
+  );
+
+  logInventoryAdvisory({
+    sku_id: skuId,
+    intervention: decision.intervention,
+    risk_level: decision.risk_level,
+    replacements_available: !leavingTheBuilding,
+    note: leavingTheBuilding
+      ? `Stock is being routed to ${decision.intervention}. Do not offer replacements ` +
+        `from this SKU - refund or store credit only.`
+      : `Stock remains sellable (${decision.intervention}). Replacements are available.`,
+  });
+
   onEvent({ type: 'answer', decision });
 
   return { sku, signals, decision, trace };

@@ -1,56 +1,63 @@
 # CosmicTrust
 
-Agentic AI prototype for the **APEX Hackathon FY27 Cohort 1** — Cosmic Mart case.
-Team 06, Eastern Edge. Showcase: **Friday 11 September, 12:25pm ET**.
+Three agentic AI systems that make each other better, built for the **APEX
+Hackathon FY27 Cohort 1** Cosmic Mart case. Team 06, Eastern Edge.
+Showcase: **Friday 11 September, 12:25pm ET**.
+
+| Agent | Job | Model |
+|---|---|---|
+| **1 · Fact Checker** | Catches misleading product claims before a listing goes live | Anthropic |
+| **2 · Customer Resolution** | Resolves complaints with real authority — refunds, replacements, fee waivers | Anthropic |
+| **3 · DeadStock Zero** | Recovers inventory heading for waste, routed to Cosmic Nexus donation | OpenRouter |
+
+The point is not three agents. The point is that they **feed each other**:
+
+```
+Agent 2 ──► Agent 1     complaint patterns raise Agent 1's scrutiny
+Agent 2 ──► Agent 3     a return spike forces donation over a discount
+Agent 1 ──► Agent 3     listing decisions distinguish real weak demand
+Agent 3 ──► Agent 2     "this stock is leaving — stop offering replacements"
+```
+
+Run `npm run demo` to watch all four fire in one session.
 
 Design lives in [`CosmicTrust_Architecture.md`](CosmicTrust_Architecture.md).
-This README is only about getting your machine ready to build.
+Working rules for contributors are in [`AGENTS.md`](AGENTS.md).
 
 ---
 
 ## Setup
 
-Takes about five minutes. Do all of it before you write any code.
+Five minutes. Do all of it before writing any code.
 
 ### 1. Install Node
 
-You need **Node 20.12 or newer**. Node 22 LTS is the safe choice.
-
-Check what you have:
+You need **Node 20.12 or newer**; Node 22 LTS is the safe choice.
 
 ```bash
 node --version
 ```
 
-If that errors, or prints anything below `v20.12.0`, install Node 22 LTS from
-[nodejs.org](https://nodejs.org). **Close and reopen your terminal afterwards** —
-this is the single most common reason "I installed it but it still says the old
-version."
+If that errors or prints below `v20.12.0`, install from
+[nodejs.org](https://nodejs.org) and **reopen your terminal** — that's the most
+common reason a fresh install "didn't work".
 
-### 2. Clone the repo
+### 2. Clone and install
 
 ```bash
 git clone https://github.com/btbferguson/Cosmic-Mart.git
 cd Cosmic-Mart
-```
-
-### 3. Install dependencies
-
-```bash
 npm ci
 ```
 
-Use `npm ci`, **not** `npm install`. `ci` installs the exact versions recorded in
-`package-lock.json`, so all six of us end up with byte-identical dependencies.
-`npm install` is free to pick up newer versions and quietly drift your machine
-away from everyone else's. This is how we keep the same environment without
-needing containers.
+Use `npm ci`, **not** `npm install`. `ci` installs the exact versions in
+`package-lock.json`, so all six of us get identical dependencies. `npm install`
+is free to pick up newer versions and drift your machine away from everyone
+else's. This is how we stay in sync without containers.
 
-### 4. Set up your own API key
+### 3. Set up your keys
 
-Every person uses **their own** key. We never share one, and it never goes in git.
-
-Copy the template:
+Each person uses **their own** keys, and they never go in git.
 
 ```bash
 cp .env.example .env
@@ -58,65 +65,257 @@ cp .env.example .env
 
 Windows PowerShell:
 
-```powershell
+```bash
 Copy-Item .env.example .env
 ```
 
-Then open `.env` and replace the placeholder with your key from
-[console.anthropic.com](https://console.anthropic.com/settings/keys).
+Then open `.env` and fill in **both** providers. You need both to run the full
+system — Agents 1 and 2 are on Anthropic, Agent 3 is on OpenRouter.
 
-`.env` is gitignored. Confirm it before you ever commit:
+| Variable | What it is |
+|---|---|
+| `ANTHROPIC_API_KEY` | Your Udacity/Vocareum `voc-` key, or a direct `sk-ant-` key |
+| `COSMIC_ANTHROPIC_BASE_URL` | `https://claude.vocareum.com` for `voc-` keys. Comment out for `sk-ant-` |
+| `OPENROUTER_API_KEY` | From [openrouter.ai/keys](https://openrouter.ai/keys) |
 
-```bash
-git check-ignore .env
-```
+Everything else in `.env.example` has a working default. Each variable is
+documented in that file — read the comments before changing one.
 
-That should print `.env`. If it prints nothing, **stop and tell the team** — your
-key is one `git add .` away from being public.
+**Two gotchas that will cost you an hour if nobody tells you:**
 
-### 5. Verify
+1. **Use `COSMIC_ANTHROPIC_BASE_URL`, not `ANTHROPIC_BASE_URL`.** Some machines
+   have `ANTHROPIC_BASE_URL` set globally pointing at `api.anthropic.com`, and
+   Node's `--env-file` does **not** overwrite variables that already exist in
+   the environment. Your `.env` gets silently ignored and you get a 401
+   "invalid x-api-key" that looks like a bad key.
+2. **A `voc-` key only works against `https://claude.vocareum.com`.** Vocareum
+   keys are rejected outright by Anthropic's own API.
+
+`npm run check` catches both.
+
+### 4. Verify
 
 ```bash
 npm run check
 ```
 
-Checks your Node version, dependencies, `.env`, key format, and that `.env` is
-ignored. Every line should say `OK`. Any `FAIL` line tells you the fix.
-
-Then confirm the key actually works against the live API:
-
-```bash
-npm run ping
-```
-
-One small real call. If it prints a reply, you're done.
-
-Finally, prove the plumbing is sane:
+Checks your Node version, dependencies, `.env`, both keys, the endpoints they
+point at, and that `.env` is gitignored. Everything should say `OK`; any `FAIL`
+line tells you the fix.
 
 ```bash
 npm test
 ```
 
-Nine tests, no network, no key needed. All should pass.
+63 tests, no keys, no network. All should pass.
+
+```bash
+npm run ping
+```
+
+One real Anthropic call, to prove your key and endpoint work together.
+
+---
+
+## Running it
+
+### The whole system
+
+```bash
+npm run demo
+```
+
+Three rounds, all four connections, roughly three minutes. This is the demo.
+
+- **Round 1** — Agent 1 assesses a listing, Agent 2 resolves a complaint about
+  that same product, Agent 3 triages the inventory reading both signals.
+- **Round 2** — the feedback flows backwards. Agent 3's advisory tells Agent 2
+  whether replacement stock still exists, and a second complaint accumulates a
+  pattern in the same category.
+- **Round 3** — Agent 1 re-reads the **identical** listing, now with two
+  complaint patterns on record, and typically hardens `escalate` into
+  `auto-blocked`. Same input, more evidence.
+
+Point it at other SKUs (both need a complaint on file):
+
+```bash
+npm run demo -- --sku SKU-1001 --second SKU-1006
+```
+
+### One agent at a time
+
+```bash
+npm run agent1
+```
+
+Agent 1 across three decision paths — clean, borderline, and an obvious violation.
+
+```bash
+npm run agent3 -- --sku SKU-1001
+```
+
+Agent 3 on one SKU with the full trace: reasoning, tool calls, agent
+consultations, and the decision card.
+
+```bash
+npm run agent3 -- --sku SKU-1001,SKU-1028,SKU-1004
+```
+
+Several SKUs, full trace on each, with a roll-up. Good three-case demo:
+SKU-1001 routes to donation, SKU-1028 correctly declines to (clean returns),
+SKU-1004 needs no action at all.
+
+```bash
+npm run agent3 -- --all
+```
+
+All 50 SKUs, one line each. ~4 minutes, about 1.5 cents.
+
+```bash
+npm run agent3 -- --brief
+```
+
+Same, plus a weekly leadership roll-up.
+
+```bash
+npm run agent3 -- --list
+```
+
+Every SKU with its signals. **No model calls, no key needed, instant.**
+
+Add `--verbose` to `--all` or `--brief` for the full trace per SKU, and
+`--limit N` to cap it. A curated 20 is a good regression check:
+
+```bash
+npm run agent3 -- --all --verbose --limit 20
+```
+
+---
+
+## Tests
+
+```bash
+npm test
+```
+
+63 tests, no API key, no network, about a second. They cover the deterministic
+half of the system — everything that must be right whether or not a model
+behaves.
+
+| File | What it proves |
+|---|---|
+| `tests/interaction.test.js` | All four agent-to-agent connections, the call graph, depth and cycle limits |
+| `tests/agent3.test.js` | CSV parsing, the `sku_id` joins, data arithmetic, guardrails |
+| `tests/agent2/agent2.test.js` | Agent 2's authority limits and escalation rules |
+| `tests/env.test.js` | JSON extraction, contract validation, shared-state plumbing |
+
+Run one file:
+
+```bash
+node --test tests/interaction.test.js
+```
+
+New tests go in `tests/`. `npm test` picks them up automatically.
+
+---
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `npm run check` | Verify Node, deps, keys and endpoints |
+| `npm test` | 63 offline tests |
+| `npm run ping` | One real Anthropic call |
+| `npm run demo` | **All three agents, three rounds, four connections** |
+| `npm run agent1` | Agent 1 across three decision paths |
+| `npm run agent3 -- --help` | Agent 3's full flag list |
+
+---
+
+## Layout
+
+```
+src/
+  llm.js            Anthropic client (Agents 1 and 2)
+  openrouter.js     OpenRouter client (Agent 3)
+  contracts.js      The agreed output shape for each agent
+  state.js          Shared state — the five channels agents signal through
+  agents/
+    registry.js     Each agent wrapped as a tool the others can call
+    agent1_factchecker.js  agent2_resolution.js  agent3_deadstock.js
+    agent3_tools.js        Agent 3's data lookups
+  prompts/          System prompts, kept apart from logic
+  tools/            Agent 2's action tools (refund, replacement, fee waiver)
+  data/             The four Cosmic Mart CSVs + the loader
+harness/
+  demo.js           The multi-round orchestrator
+  agent3.js         Agent 3 CLI
+  render.js         Terminal decision cards, shared by all agents
+  check_env.js      npm run check
+  ping.js           npm run ping
+  seedSignals.js    Stands in for Agents 1 & 2 when running Agent 3 alone
+fixtures/           Recorded API responses (gitignored)
+tests/              Offline test suites
+```
+
+### Files worth understanding first
+
+**`src/state.js`** — the five channels the agents signal through. This object is
+the system. Use the exported writer functions rather than mutating
+`sharedState` directly, so the UI hears about every change.
+
+**`src/agents/registry.js`** — the agent-as-tool layer, and the call graph in
+one readable table. Agent 2 and Agent 3 can each consult the other, so the
+graph is cyclic; it terminates because those consultations read published state
+instead of re-invoking a model, and because a call stack plus a depth limit
+refuse to re-enter an agent already in the chain.
+
+**`src/contracts.js`** — what each agent must return. Code against it; raise a
+change in the team channel first, because someone else is building against it.
+
+---
+
+## Offline mode
+
+`COSMIC_LLM_MODE` controls both clients:
+
+| Mode | Behaviour |
+|---|---|
+| `live` | Calls the API every time. The default. |
+| `record` | Calls the API **and** saves each response into `fixtures/`. |
+| `replay` | Never calls the API. Serves saved fixtures only — works with no key and no internet. |
+
+Before the showcase, run everything once in `record` mode. If the conference
+wifi dies, set `COSMIC_LLM_MODE=replay` and the demo runs identically offline.
+
+Fixtures are gitignored — they are large, and anyone can regenerate them:
+
+```bash
+COSMIC_LLM_MODE=record npm run agent3 -- --all
+```
+
+PowerShell needs the env var set separately (there is no inline `VAR=value`
+prefix):
+
+```bash
+$env:COSMIC_LLM_MODE="record"; npm run agent3 -- --all
+```
 
 ---
 
 ## Staying in sync
-
-Whenever you pull:
 
 ```bash
 git pull
 npm ci
 ```
 
-Run `npm ci` after **every** pull. If someone added a dependency, this is what
-gets it onto your machine. It's fast and it's idempotent — running it when
-nothing changed costs you a few seconds and nothing else.
+Run `npm ci` after **every** pull. If someone added a dependency, that's what
+gets it onto your machine. It's fast and idempotent.
 
 ### When something breaks
 
-Try these in order. The first one fixes most things:
+In order — the first one fixes most things:
 
 ```bash
 npm ci
@@ -126,104 +325,30 @@ npm ci
 rm -rf node_modules && npm ci
 ```
 
-Windows PowerShell:
+PowerShell:
 
-```powershell
+```bash
 Remove-Item -Recurse -Force node_modules; npm ci
 ```
 
-If it's still broken, run `npm run check` and paste the output into the team
-channel — it usually names the problem directly.
-
----
-
-## Commands
-
-| Command | What it does |
-|---|---|
-| `npm run check` | Verify your environment is set up correctly |
-| `npm run ping` | One real API call, to prove your key works |
-| `npm test` | Environment smoke tests — no key or network needed |
-
-More will land here as the build team adds the server and agent harnesses.
-
----
-
-## Layout
-
-```
-src/
-  llm.js         Shared Claude client. All API calls go through here.
-  contracts.js   The agreed input/output shape for each agent.
-  state.js       The shared state the three agents read and write.
-  agents/        Agent implementations
-  prompts/       System prompts, kept separate from logic
-  tools/         Functions agents can actually call
-  data/          Demo inputs
-harness/
-  check_env.js   npm run check
-  ping.js        npm run ping
-fixtures/        Recorded API responses, for running offline
-tests/           Smoke tests
-ui/              Demo interface
-```
-
-### The three files worth understanding before you start
-
-**`src/llm.js`** — the only place we talk to Claude. Temperature is pinned to `0`
-so the same input gives the same answer on stage as it did in rehearsal. Don't
-import the Anthropic SDK anywhere else.
-
-**`src/contracts.js`** — the agreed shape of each agent's output. This is what
-lets three pairs build three agents in parallel without coordinating. Code
-against it; if you need a field changed, raise it in the team channel first
-because someone else is building against it right now.
-
-**`src/state.js`** — the shared object the agents use to signal each other. Use
-the exported writer functions rather than mutating `sharedState` directly, so
-the UI hears about every change.
+Still broken? Run `npm run check` and paste the output into the team channel —
+it usually names the problem outright.
 
 ---
 
 ## Working agreements
 
-**One pair per agent, one directory per pair.** Only touch your own files and
-merge conflicts mostly stop happening.
+One pair per agent, one file set per pair. See the ownership table in
+[`AGENTS.md`](AGENTS.md).
 
-| Pair | Owns |
-|---|---|
-| A | `src/agents/agent1_*`, `src/prompts/prompt_agent1.js`, `fixtures/agent1/` |
-| B | `src/agents/agent2_*`, `src/prompts/prompt_agent2.js`, `src/tools/`, `fixtures/agent2/` |
-| C | `src/agents/agent3_*`, `src/prompts/prompt_agent3.js`, `fixtures/agent3/` |
-| Integration | `src/llm.js`, `src/state.js`, `src/contracts.js`, `server.js`, `ui/`, the repo root |
+Branches are `Agent-1`, `Agent-2`, `Agent-3` and `UI`. `integration` is where
+they merge. **Never commit to `main`** — that's what we demo from.
 
-**Branches.** Work on `agent1`, `agent2`, `agent3`. Don't commit to `main`
-directly — that's the branch we demo from.
-
-**Never commit** `.env`, an API key, or `node_modules/`.
+Never commit `.env`, an API key, or `node_modules/`.
 
 ---
 
-## Offline mode
-
-`COSMIC_LLM_MODE` controls how `src/llm.js` behaves:
-
-| Mode | Behaviour |
-|---|---|
-| `live` | Calls the API every time. Default, and what you want while building. |
-| `record` | Calls the API **and** saves the response into `fixtures/`. |
-| `replay` | Never calls the API. Serves saved fixtures only. Works with no key and no internet. |
-
-Before the showcase we run everything once in `record` mode and commit the
-fixtures. If the conference wifi dies mid-pitch, we set `COSMIC_LLM_MODE=replay`
-and the demo runs identically with no network at all.
-
-It's also handy day to day — if you're out of API credit, `replay` still lets you
-work on the UI.
-
----
-
-# Agent 1 Data
+## Agent 1 Data
 
 - Cosmic Mart Products
     - All the products and their specs

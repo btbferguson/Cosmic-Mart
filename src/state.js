@@ -28,6 +28,16 @@ export const sharedState = {
 
   /** Written by the tools Agent 2 calls. Proof the agent did something real. */
   actionLedger: [],
+
+  /**
+   * Written by Agent 3, read by Agent 2. The reverse direction of the loop.
+   *
+   * Once Agent 3 decides a SKU is being donated or returned to the supplier,
+   * Agent 2 must stop promising replacements from stock that is on its way out
+   * of the building. Inventory reality constrains what customer service can
+   * credibly offer.
+   */
+  inventoryAdvisoryLog: [],
 };
 
 /* ------------------------------------------------------------------ *
@@ -102,6 +112,32 @@ export function resolveReview(id, verdict) {
   return item;
 }
 
+/**
+ * Agent 3 -> Agent 2. What customer service may credibly offer on this SKU.
+ *
+ * This closes the loop in the other direction: the first three connections all
+ * flow toward Agent 3, and this one flows back out.
+ */
+export function logInventoryAdvisory({ sku_id, intervention, risk_level, replacements_available, note }) {
+  const entry = {
+    sku_id,
+    intervention,
+    risk_level,
+    replacements_available,
+    note,
+    timestamp: now(),
+  };
+  sharedState.inventoryAdvisoryLog.push(entry);
+  emit({ type: 'inventoryAdvisory', entry });
+  return entry;
+}
+
+/** The most recent advisory Agent 3 issued for a SKU, or null. */
+export function inventoryAdvisoryFor(skuId) {
+  const matches = sharedState.inventoryAdvisoryLog.filter((entry) => entry.sku_id === skuId);
+  return matches.length ? matches[matches.length - 1] : null;
+}
+
 /** Agent 2's tools -> ledger. Every real-world action the system took. */
 export function recordAction(action) {
   const record = { ...action, timestamp: now() };
@@ -140,6 +176,7 @@ export function reset() {
   sharedState.listingDecisionLog = [];
   sharedState.reviewQueue = [];
   sharedState.actionLedger = [];
+  sharedState.inventoryAdvisoryLog = [];
   emit({ type: 'reset' });
 }
 

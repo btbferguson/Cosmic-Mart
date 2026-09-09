@@ -21,10 +21,18 @@ Thursday," choose working by Thursday. Design detail lives in
 
 ## Hard rules
 
-- **All Claude calls go through `src/llm.js`.** Never import `@anthropic-ai/sdk`
-  anywhere else.
-- **Never change `temperature` from `0`.** The demo has to give the same answer
-  on stage that it gave in rehearsal.
+- **All Anthropic calls go through `src/llm.js`; all OpenRouter calls go through
+  `src/openrouter.js`.** Never import `@anthropic-ai/sdk` or call the OpenRouter
+  endpoint anywhere else.
+- **Set the Anthropic endpoint with `COSMIC_ANTHROPIC_BASE_URL`, not
+  `ANTHROPIC_BASE_URL`.** Node's `--env-file` does not overwrite variables
+  already in the environment, and some machines set `ANTHROPIC_BASE_URL`
+  globally. Udacity `voc-` keys need `https://claude.vocareum.com`.
+- **Never raise `temperature` above `0`.** The demo has to give the same answer
+  on stage that it gave in rehearsal. Note that `claude-sonnet-5` rejects the
+  parameter entirely (400 "`temperature` is deprecated for this model"), so
+  `src/llm.js` detects that and drops it. Agent 3 on OpenRouter still pins it
+  to 0. Do not add it back to the Anthropic path.
 - **`src/llm.js`, `src/state.js` and `src/contracts.js` are shared.** Do not edit
   them. If you need something changed, raise it in the team channel — five other
   people are building against them right now.
@@ -111,7 +119,19 @@ read and write its signals, the demo has no story.
 Agent 2 --[complaint pattern]--> Agent 1     get stricter where trust broke
 Agent 2 --[return spike]-------> Agent 3     do not discount what customers return
 Agent 1 --[listing decision]---> Agent 3     tell real low demand from a pulled listing
+Agent 3 --[stock advisory]-----> Agent 2     stop promising stock that is leaving
 ```
+
+They can also consult each other directly as tools — see
+`src/agents/registry.js` for the call graph and `CAPABILITIES` for who may
+call whom. Agent 2 and Agent 3 can each consult the other, so the graph is
+cyclic. It terminates because those consultations read published state rather
+than re-invoking a model, and because a call stack plus `MAX_AGENT_DEPTH`
+refuse to re-enter an agent already in the chain. Multi-round conversation is
+driven by the orchestrator's loop counter in `harness/demo.js` — rounds are
+bounded, recursion is not.
+
+Watch all four fire: `npm run demo`
 
 ---
 
@@ -139,8 +159,11 @@ Out of scope. Do not add them, and do not suggest them:
 ## Before you push
 
 ```bash
-npm run check    # environment is sane
-npm test         # smoke tests pass
+npm run check    # Node, deps, keys and endpoints resolve
+npm test         # all 63 offline tests pass
 ```
+
+If you touched anything shared, also run `npm run demo` and confirm all four
+connections still tick.
 
 New tests go in `tests/`. Setup instructions are in [`README.md`](README.md).
