@@ -9,6 +9,7 @@
   },
   "scripts": {
     "check": "node --env-file-if-exists=.env harness/check_env.js",
+    "start": "node --env-file-if-exists=.env server.js",
     "test": "node --test \"tests/**/*.test.js\"",
     "ping": "node --env-file-if-exists=.env harness/ping.js",
     "agent3": "node --env-file-if-exists=.env harness/agent3.js",
