@@ -733,6 +733,7 @@ const signalLog = [
 
 /* ============ STATE ============ */
 let tgActiveId=null, tgFilter='all';
+let tgListings=[];  // populated from /api/listings; falls back to mockListings
 let ccActiveId=null, ccFilter='all';
 let dsActiveId=null;
 let visitedScreens=new Set();
@@ -852,9 +853,8 @@ function logout(){
 }
 function initScreen(role){
   if(role==='trustgate'){
-    // Render queue only; leave detail panel as empty placeholder
-    renderListings();
     document.getElementById('tg-detail').innerHTML=`<div class="detail-empty"><span class="glyph">📋</span>Select a listing to see the full assessment</div>`;
+    loadTgListings(); // async: fetches /api/listings, then calls renderListings()
   }
   if(role==='cosmiccare'){
     renderComplaints();
@@ -886,6 +886,15 @@ function showToast(msg){
 }
 
 /* ============ TRUSTGATE ============ */
+async function loadTgListings(){
+  try{
+    tgListings=await fetch('/api/listings').then(r=>r.json());
+  } catch {
+    tgListings=[...mockListings]; // fallback if server unreachable
+  }
+  renderListings();
+}
+
 function statusBadge(status){
   if(status==='approved') return `<span class="badge badge-green">Approved</span>`;
   if(status==='needs_review') return `<span class="badge badge-amber">Needs Review</span>`;
@@ -903,7 +912,7 @@ document.getElementById('tg-filters').addEventListener('click',e=>{
   renderListings();
 });
 function renderListings(){
-  const list=mockListings.filter(l=>{
+  const list=tgListings.filter(l=>{
     if(tgFilter==='all')return true;
     if(tgFilter==='needs_review')return l.status==='needs_review';
     if(tgFilter==='resolved')return l.status==='approved'||l.status==='auto_blocked_resolved';
@@ -921,10 +930,41 @@ function renderListings(){
     </div>
   `).join('') || `<div class="detail-empty" style="height:auto;padding:24px;"><span class="glyph">✓</span>Nothing here</div>`;
 }
-function openListingDetail(id){
+async function openListingDetail(id){
   tgActiveId=id;
   renderListings();
-  const l=mockListings.find(x=>x.id===id);
+  const l=tgListings.find(x=>x.id===id);
+  if(!l) return;
+
+  // If Agent 1 has not assessed this listing yet, call it now
+  if(l.ai_decision===null){
+    openPanel(`
+      <div class="side-panel-inner">
+        <div class="side-panel-header">
+          <div>
+            <h2 style="font-size:20px;margin-bottom:6px;">${l.product_name}</h2>
+            <div class="detail-badges"><span class="pill">${l.category}</span><span class="pill">${l.market}</span></div>
+          </div>
+          <button class="side-panel-close" onclick="closePanel()">✕</button>
+        </div>
+        <div class="ai-card">
+          <h3>TrustGate AI Assessment</h3>
+          <div style="color:var(--text-secondary);font-size:14px;padding:6px 0;">Checking claims against product description…</div>
+        </div>
+      </div>
+    `);
+    try{
+      const data=await fetch('/api/listings/'+id+'/check',{method:'POST'}).then(r=>r.json());
+      if(data.error){ showToast('⚠ Agent 1: '+data.error); closePanel(); return; }
+      Object.assign(l,data); // cache the result so a second click renders instantly
+      renderListings();      // update the queue card badge
+    } catch(err){
+      showToast('⚠ Could not reach Agent 1: '+err.message);
+      closePanel();
+      return;
+    }
+  }
+
   const decisionMap={escalate:{label:'Needs Review',cls:'badge-amber'},approved:{label:'Approved',cls:'badge-green'},blocked:{label:'Auto-Blocked',cls:'badge-red'}};
   const d=decisionMap[l.ai_decision]||decisionMap.escalate;
   const needsReview=l.status==='needs_review';
@@ -974,7 +1014,7 @@ function openListingDetail(id){
   `);
 }
 function decideListing(id,decision){
-  const l=mockListings.find(x=>x.id===id);
+  const l=tgListings.find(x=>x.id===id);
   l.status=decision;
   renderListings();
   showToast('Decision saved');
