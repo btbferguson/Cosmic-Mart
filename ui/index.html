@@ -279,19 +279,38 @@
   .bar-seg-red{background:var(--danger);}
   .agent-card .last-activity{font-size:11.5px;color:var(--text-secondary);margin-top:8px;}
 
-  .signal-panel{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:24px;}
-  .signal-panel h3{font-size:15px;margin-bottom:18px;}
-  .flow-diagram{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:22px;flex-wrap:wrap;}
-  .flow-node{border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;background:var(--panel);}
-  .flow-arrow{color:var(--text-secondary);font-size:16px;}
-  .flow-arrow.pulse{animation:pulseArrow 1.6s ease-in-out infinite;color:var(--primary);}
-  @keyframes pulseArrow{0%,100%{opacity:0.5;}50%{opacity:1;}}
-  .signal-log{max-height:220px;overflow-y:auto;border-top:1px solid var(--border);padding-top:12px;}
-  .signal-entry{display:flex;align-items:flex-start;gap:10px;padding:9px 0;font-size:13px;border-bottom:1px solid #F1F5F9;}
+  .signal-panel{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px;}
+  .signal-panel h3{font-size:15px;margin-bottom:4px;}
+  .signal-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px;}
+  .signal-title-wrap{display:flex;flex-direction:column;}
+  .signal-kicker{font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:4px;}
+  .signal-sub{font-size:12px;color:var(--text-secondary);}
+  .signal-live{display:flex;align-items:center;gap:8px;color:var(--success);font-size:11px;font-weight:700;letter-spacing:0.08em;background:var(--success-bg);padding:7px 10px;border-radius:99px;}
+  .signal-live .pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 0 0 rgba(22,163,74,0.8);animation:pulseDot 2s infinite;}
+  @keyframes pulseDot{70%{box-shadow:0 0 0 8px rgba(22,163,74,0);opacity:1;}100%{box-shadow:0 0 0 0 rgba(22,163,74,0);opacity:0.8;}}
+  .flow-compact{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;}
+  .flow-compact .agent-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .flow-agent{font-size:11px;font-weight:700;padding:5px 9px;border-radius:99px;border:1px solid var(--border);background:#fff;color:var(--text);min-width:74px;text-align:center;}
+  .flow-agent.trustgate{color:var(--primary);border-color:var(--primary);}
+  .flow-agent.cosmiccare{color:var(--teal);border-color:var(--teal);}
+  .flow-agent.deadstock{color:var(--success);border-color:var(--success);}
+  .flow-arrows{display:flex;align-items:center;gap:6px;color:var(--text-secondary);font-size:12px;}
+  .flow-arrow{font-size:14px;color:var(--primary);} 
+  .flow-types{display:flex;gap:8px;flex-wrap:wrap;}
+  .flow-type{font-size:10px;border-radius:99px;padding:4px 8px;background:#fff;border:1px solid var(--border);color:var(--text-secondary);}
+  .flow-links{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--text-secondary);}
+  .flow-link{border-radius:99px;padding:4px 8px;background:var(--panel);border:1px solid var(--border);}
+  .flow-link.trust-load{color:var(--primary);} .flow-link.care-load{color:var(--teal);} .flow-link.stock-load{color:var(--success);} .flow-link.return-load{color:var(--danger);} .flow-link.review-load{color:var(--warning);}
+  .signal-legend{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:10.5px;color:var(--text-secondary);}
+  .signal-legend .legend-item{display:flex;align-items:center;gap:5px;}
+  .signal-legend .legend-swatch{width:8px;height:8px;border-radius:50%;}
+  .signal-legend .trust-swatch{background:var(--primary);} .signal-legend .care-swatch{background:var(--teal);} .signal-legend .stock-swatch{background:var(--success);} .signal-legend .risk-swatch{background:var(--danger);} .signal-legend .warn-swatch{background:var(--warning);} .signal-legend .blue-swatch{background:var(--secondary);} .signal-legend .red-swatch{background:var(--danger);} .signal-legend .orange-swatch{background:var(--warning);} .signal-legend .green-swatch{background:var(--success);} .signal-legend .blue-swatch{background:var(--primary);} 
+  .signal-log{max-height:180px;overflow-y:auto;border-top:1px solid var(--border);padding-top:10px;}
+  .signal-entry{display:flex;align-items:flex-start;gap:10px;padding:7px 0;font-size:12.5px;border-bottom:1px solid #F1F5F9;}
   .signal-entry:last-child{border-bottom:none;}
-  .signal-entry .sdot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+  .signal-entry .sdot{width:7px;height:7px;border-radius:50%;margin-top:4px;flex-shrink:0;}
   .signal-entry .stext{flex:1;}
-  .signal-entry .stime{color:var(--text-secondary);font-size:11.5px;white-space:nowrap;}
+  .signal-entry .stime{color:var(--text-secondary);font-size:11px;white-space:nowrap;}
 
   .brief-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:26px;}
   .brief-card h3{font-size:15px;margin-bottom:14px;}
@@ -565,14 +584,43 @@
 
     <!-- Live inter-agent signals -->
     <div class="admin-row signal-panel">
-      <h3>Live Agent Signals</h3>
-      <div class="flow-diagram">
-        <div class="flow-node">TrustGate</div>
-        <span class="flow-arrow pulse">←——→</span>
-        <div class="flow-node">CosmicCare</div>
-        <span class="flow-arrow pulse">——→</span>
-        <div class="flow-node">DeadStock Zero</div>
+      <div class="signal-top">
+        <div class="signal-title-wrap">
+          <div class="signal-kicker">Agent Intelligence</div>
+          <h3>Live Agent Signal Flow</h3>
+        </div>
+        <div class="signal-live"><span class="pulse-dot"></span>LIVE</div>
       </div>
+
+      <div class="flow-compact">
+        <div class="agent-strip">
+          <span class="flow-agent trustgate">TrustGate</span>
+          <span class="flow-arrows"><span class="flow-arrow">↔</span></span>
+          <span class="flow-agent cosmiccare">CosmicCare</span>
+          <span class="flow-arrows"><span class="flow-arrow">↔</span></span>
+          <span class="flow-agent deadstock">DeadStock Zero</span>
+        </div>
+        <div class="flow-types">
+          <span class="flow-type">Listing</span>
+          <span class="flow-type">Complaint</span>
+          <span class="flow-type">Inventory</span>
+        </div>
+      </div>
+
+      <div class="flow-links">
+        <span class="flow-link trust-load">TrustGate → DeadStock Zero</span>
+        <span class="flow-link care-load">CosmicCare → TrustGate</span>
+        <span class="flow-link stock-load">DeadStock Zero → CosmicCare</span>
+        <span class="flow-link return-load">CosmicCare → DeadStock Zero</span>
+      </div>
+
+      <div class="signal-legend">
+        <span class="legend-item"><span class="legend-swatch red-swatch"></span>complaint</span>
+        <span class="legend-item"><span class="legend-swatch orange-swatch"></span>return/recovery</span>
+        <span class="legend-item"><span class="legend-swatch green-swatch"></span>inventory</span>
+        <span class="legend-item"><span class="legend-swatch blue-swatch"></span>listing</span>
+      </div>
+
       <div class="signal-log" id="signal-log"></div>
     </div>
 
@@ -677,10 +725,10 @@ const mockInventory = [
 ];
 
 const signalLog = [
-  { color:'var(--danger)', text:"CosmicCare → TrustGate: 'misleading description' flagged for UltraCharge Pro", time:'2 min ago' },
-  { color:'var(--success)', text:"TrustGate → DeadStock Zero: return-risk signal raised for UltraCharge Pro", time:'5 min ago' },
-  { color:'var(--secondary)', text:"CosmicCare → TrustGate: 'damaged delivery' logged for order CM-1002", time:'12 min ago' },
-  { color:'var(--warning)', text:"DeadStock Zero → Admin: Cosmic Nexus donation executed for SKU-1001", time:'20 min ago' }
+  { color:'var(--danger)', text:"CosmicCare → TrustGate: complaint pattern 'misleading description' raised for UltraCharge Pro", time:'2 min ago' },
+  { color:'var(--primary)', text:"TrustGate → DeadStock Zero: listing decision for UltraCharge Pro was logged as a demand signal", time:'5 min ago' },
+  { color:'var(--warning)', text:"CosmicCare → DeadStock Zero: return spike flagged for UltraCharge Pro; replacement stock must be checked", time:'12 min ago' },
+  { color:'var(--success)', text:"DeadStock Zero → CosmicCare: inventory advisory marked SKU-1001 for Cosmic Nexus donation", time:'20 min ago' }
 ];
 
 /* ============ STATE ============ */
