@@ -24,6 +24,9 @@ import { classify } from './src/customer/classifier.js';
 import { answer } from './src/customer/qa.js';
 import { resolve, loadComplaints } from './src/agents/agent2_resolution.js';
 import { enqueueForReview, resolveReview } from './src/state.js';
+import { buildListingInput } from './src/agents/registry.js';
+import { checkListing } from './src/agents/agent1_factchecker.js';
+import { loadListings, loadProducts } from './src/data/loadData.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const UI_DIR = path.join(ROOT, 'ui');
@@ -239,6 +242,74 @@ app.post('/api/review/:id/resolve', async (req, res) => {
   });
 
   res.json({ ok: true, verdict: 'approved', resolution });
+});
+
+/* ------------------------------------------------------------------ *
+ * TrustGate — Listings (Agent 1)
+ * ------------------------------------------------------------------ */
+
+const DECISION_TO_STATUS = { approved: 'approved', escalate: 'needs_review', 'auto-blocked': 'auto_blocked' };
+const DECISION_TO_AI    = { approved: 'approved', escalate: 'escalate', 'auto-blocked': 'blocked' };
+
+/** All listings from the CSV, shaped for the TrustGate queue. No AI calls. */
+app.get('/api/listings', (_req, res) => {
+  const listings = loadListings();
+  const products  = loadProducts();
+  res.json(
+    listings.map((row) => {
+      const product = products.find((p) => p.sku_id === row.sku_id);
+      return {
+        id:             row.sku_id,
+        sku_id:         row.sku_id,
+        product_name:   row.product_name,
+        category:       product?.product_category ?? 'gadgets',
+        market:         'North America',
+        description:    row.listing_description,
+        claims:         row.listing_claims,
+        status:         'pending',
+        submitted:      'in queue',
+        ai_decision:    null,
+        confidence:     null,
+        reason:         null,
+        recommendation: null,
+        complaint_signal: null,
+      };
+    }),
+  );
+});
+
+/**
+ * Run Agent 1 on one listing and return the result merged with listing metadata.
+ * The UI calls this when a reviewer opens a specific listing card.
+ */
+app.post('/api/listings/:skuId/check', async (req, res) => {
+  const { skuId } = req.params;
+  const listing = buildListingInput(skuId);
+  if (!listing) return res.status(404).json({ error: `No listing on file for ${skuId}` });
+
+  let result;
+  try {
+    result = await checkListing(listing);
+  } catch (err) {
+    return res.status(502).json({ error: `Agent 1 failed: ${err.message}` });
+  }
+
+  res.json({
+    id:             skuId,
+    sku_id:         skuId,
+    product_name:   listing.product_name,
+    category:       listing.product_category,
+    market:         listing.market_region,
+    description:    listing.product_description,
+    claims:         listing.claims,
+    status:         DECISION_TO_STATUS[result.decision] ?? 'needs_review',
+    submitted:      'just now',
+    ai_decision:    DECISION_TO_AI[result.decision] ?? 'escalate',
+    confidence:     result.confidence,
+    reason:         result.reason,
+    recommendation: result.recommendation_to_reviewer || null,
+    complaint_signal: result.complaint_signal === 'no-signal' ? null : result.complaint_signal,
+  });
 });
 
 app.listen(PORT, () => {
