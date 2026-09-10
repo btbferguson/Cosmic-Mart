@@ -307,11 +307,48 @@
   .progress-fill{height:100%;background:var(--success);border-radius:6px;}
   .progress-caption{font-size:12px;color:var(--text-secondary);margin-top:8px;}
 
+  /* ===== ADMIN STATUS STRIP ===== */
+  .status-strip{background:#fff;border:1px solid var(--border);border-radius:var(--radius);display:flex;overflow:hidden;}
+  .status-metric{flex:1;padding:14px 20px;border-right:1px solid var(--border);min-width:0;}
+  .status-metric:last-child{border-right:none;}
+  .sm-val{font-size:20px;font-weight:700;line-height:1.1;white-space:nowrap;}
+  .sm-lbl{font-size:11.5px;color:var(--text-secondary);margin-top:3px;}
+  .sm-delta{font-size:11px;margin-top:5px;font-weight:500;}
+  .sm-delta.up{color:var(--success);}
+  .sm-delta.neu{color:var(--text-secondary);}
+
+  /* ===== TABBED AGENT PANEL ===== */
+  .agent-tab-panel{background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .agent-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--panel);}
+  .agent-tab-btn{flex:1;padding:11px 16px;font-size:13px;font-weight:500;color:var(--text-secondary);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:color 0.15s,border-color 0.15s,background 0.15s;margin-bottom:-1px;}
+  .agent-tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);background:#fff;}
+  .agent-tab-content{padding:22px 26px;display:none;}
+  .agent-tab-content.active{display:flex;gap:0;align-items:center;animation:tabSlide 0.2s ease;}
+  @keyframes tabSlide{from{opacity:0;transform:translateX(8px);}to{opacity:1;transform:translateX(0);}}
+  .tab-col{flex:1;padding:0 24px;border-left:1px solid var(--border);}
+  .tab-col:first-child{padding-left:0;border-left:none;}
+  .tab-col-val{font-size:22px;font-weight:700;line-height:1.1;}
+  .tab-col-lbl{font-size:12px;color:var(--text-secondary);margin-top:4px;}
+  .tab-bar-col{flex:2;padding:0 24px;border-left:1px solid var(--border);}
+  .tab-bar-lbl{font-size:11.5px;color:var(--text-secondary);margin-bottom:7px;}
+
+  /* ===== RESOLUTION CHART PANEL ===== */
+  .chart-panel{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:24px;}
+  .chart-panel h3{font-size:15px;margin-bottom:4px;}
+  .chart-sub{font-size:12.5px;color:var(--text-secondary);margin-bottom:20px;}
+  .chart-legend{display:flex;gap:18px;margin-top:14px;flex-wrap:wrap;}
+  .chart-legend-item{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-secondary);}
+  .chart-legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+
   @media (max-width:900px){
     .two-col{flex-direction:column;height:auto;}
     .col-queue,.col-detail{width:100%;}
     .stat-row,.agent-cards{grid-template-columns:1fr;}
     .side-panel{width:100%;}
+    .status-strip,.agent-tab-content{flex-direction:column;}
+    .status-metric{border-right:none;border-bottom:1px solid var(--border);}
+    .tab-col,.tab-bar-col{border-left:none;padding:12px 0;border-top:1px solid var(--border);}
+    .tab-col:first-child,.tab-bar-col:first-child{border-top:none;padding-top:0;}
   }
 </style>
 </head>
@@ -448,34 +485,85 @@
     <div class="right" id="nav-admin"></div>
   </div>
   <div class="admin-body">
-    <div class="admin-row agent-cards">
-      <div class="agent-card">
-        <h4>TrustGate</h4>
-        <div class="big-num">47</div>
-        <div class="sub">Listings reviewed today</div>
-        <div class="bar-mini">
-          <div class="bar-seg-green" style="width:78%"></div>
-          <div class="bar-seg-amber" style="width:16%"></div>
-          <div class="bar-seg-red" style="width:6%"></div>
+
+    <!-- Compact cross-agent status bar -->
+    <div class="admin-row status-strip" id="admin-kpis"></div>
+
+    <!-- Tabbed agent detail panel — one agent at a time -->
+    <div class="admin-row agent-tab-panel">
+      <div class="agent-tabs">
+        <button class="agent-tab-btn active" onclick="switchAgentTab('trustgate',this)">📋 TrustGate</button>
+        <button class="agent-tab-btn" onclick="switchAgentTab('cosmiccare',this)">💬 CosmicCare</button>
+        <button class="agent-tab-btn" onclick="switchAgentTab('deadstock',this)">📦 DeadStock Zero</button>
+      </div>
+
+      <div class="agent-tab-content active" id="agtab-trustgate">
+        <div class="tab-col">
+          <div class="tab-col-val">47</div>
+          <div class="tab-col-lbl">Listings reviewed today</div>
+          <div style="font-size:11.5px;color:var(--text-secondary);margin-top:10px;">Last activity: 4 min ago</div>
         </div>
-        <div class="last-activity">Last activity: 4 minutes ago</div>
+        <div class="tab-bar-col">
+          <div class="tab-bar-lbl">Decision breakdown</div>
+          <div class="bar-mini">
+            <div class="bar-seg-green" style="width:78%"></div>
+            <div class="bar-seg-amber" style="width:16%"></div>
+            <div class="bar-seg-red" style="width:6%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:5px;">
+            <span style="color:var(--success);">78% approved</span>
+            <span style="color:var(--warning);">16% needs review</span>
+            <span style="color:var(--danger);">6% blocked</span>
+          </div>
+        </div>
       </div>
-      <div class="agent-card teal">
-        <h4>CosmicCare</h4>
-        <div class="big-num">124</div>
-        <div class="sub">Complaints resolved today</div>
-        <div class="sub" style="margin-top:8px;">Resolution rate: <strong>96%</strong></div>
-        <div class="last-activity">Last activity: 1 minute ago</div>
+
+      <div class="agent-tab-content" id="agtab-cosmiccare">
+        <div class="tab-col">
+          <div class="tab-col-val">124</div>
+          <div class="tab-col-lbl">Complaints resolved today</div>
+          <div style="font-size:11.5px;color:var(--text-secondary);margin-top:10px;">Last activity: 1 min ago</div>
+        </div>
+        <div class="tab-col">
+          <div class="tab-col-val" style="color:var(--teal);">8s</div>
+          <div class="tab-col-lbl">Avg resolution time</div>
+        </div>
+        <div class="tab-col">
+          <div class="tab-col-val">96%</div>
+          <div class="tab-col-lbl">Resolution rate</div>
+        </div>
       </div>
-      <div class="agent-card green">
-        <h4>DeadStock Zero</h4>
-        <div class="big-num">12</div>
-        <div class="sub">SKUs intervened today</div>
-        <div class="sub" style="margin-top:8px;">Margin recovered: <strong>$48,200</strong></div>
-        <div class="last-activity">Carbon saved today: 127 kg</div>
+
+      <div class="agent-tab-content" id="agtab-deadstock">
+        <div class="tab-col">
+          <div class="tab-col-val">12</div>
+          <div class="tab-col-lbl">SKUs intervened today</div>
+          <div style="font-size:11.5px;color:var(--text-secondary);margin-top:10px;">Carbon tracker updated</div>
+        </div>
+        <div class="tab-col">
+          <div class="tab-col-val" style="color:var(--success);">$48.2k</div>
+          <div class="tab-col-lbl">Margin recovered</div>
+        </div>
+        <div class="tab-col">
+          <div class="tab-col-val">127 kg</div>
+          <div class="tab-col-lbl">CO₂ saved today</div>
+        </div>
       </div>
     </div>
 
+    <!-- Resolution speed chart -->
+    <div class="admin-row chart-panel">
+      <h3>Complaint Resolution Speed — Today</h3>
+      <div class="chart-sub">Complaints resolved per hour · Bar color indicates average AI response time</div>
+      <div id="admin-resolution-chart"></div>
+      <div class="chart-legend">
+        <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--success);"></div>Fast (≤ 9s)</div>
+        <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--warning);"></div>Moderate (10–14s)</div>
+        <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--danger);"></div>Slow (≥ 15s)</div>
+      </div>
+    </div>
+
+    <!-- Live inter-agent signals -->
     <div class="admin-row signal-panel">
       <h3>Live Agent Signals</h3>
       <div class="flow-diagram">
@@ -488,6 +576,7 @@
       <div class="signal-log" id="signal-log"></div>
     </div>
 
+    <!-- Sustainability impact -->
     <div class="admin-row nexus-card">
       <h3>🌿 Cosmic Nexus Impact — All Time</h3>
       <div class="nexus-stats">
@@ -499,11 +588,13 @@
       <div class="progress-caption">68% toward this month's sustainability target</div>
     </div>
 
+    <!-- Weekly brief at bottom — export artifact, not primary info -->
     <div class="admin-row brief-card">
       <h3>Weekly Brief — Leadership Summary</h3>
       <p>This week CosmicTrust reviewed 47 product listings, blocking 3 with unverified claims before they reached customers. CosmicCare resolved 124 customer complaints with an average resolution time of 8 seconds. DeadStock Zero intervened on 12 at-risk SKUs, recovering an estimated $48,200 in margin and diverting 340 units from landfill through Cosmic Nexus donations, saving approximately 127kg of CO2.</p>
       <button class="btn btn-secondary">↓ Download Report</button>
     </div>
+
   </div>
 </section>
 
@@ -512,6 +603,18 @@
 
 <script>
 /* ============ MOCK DATA ============ */
+const hourlyResolution = [
+  { hour:'8am',  count:8,  avgSec:7  },
+  { hour:'9am',  count:15, avgSec:9  },
+  { hour:'10am', count:22, avgSec:8  },
+  { hour:'11am', count:18, avgSec:11 },
+  { hour:'12pm', count:12, avgSec:7  },
+  { hour:'1pm',  count:19, avgSec:8  },
+  { hour:'2pm',  count:24, avgSec:9  },
+  { hour:'3pm',  count:16, avgSec:12 },
+  { hour:'4pm',  count:9,  avgSec:8  },
+];
+
 const mockListings = [
   { id:'L001', product_name:'UltraCharge Pro', category:'Gadgets', market:'North America', status:'needs_review', submitted:'2 hours ago',
     description:'A compact wireless charging pad compatible with all Qi-enabled devices.',
@@ -710,7 +813,7 @@ function initScreen(role){
     document.getElementById('cc-detail').innerHTML=`<div class="detail-empty"><span class="glyph">💬</span>Select a complaint to see the drafted resolution</div>`;
   }
   if(role==='deadstock'){ renderDeadstock(); }
-  if(role==='admin'){ renderSignalLog(); }
+  if(role==='admin'){ renderAdminDashboard(); }
 }
 
 /* ============ SHARED SIDE PANEL ============ */
@@ -1021,7 +1124,76 @@ function executeIntervention(id,choice){
   }
 }
 
-/* ============ ADMIN SIGNAL LOG ============ */
+/* ============ ADMIN DASHBOARD ============ */
+function renderAdminDashboard(){
+  renderKPIs();
+  renderResolutionChart();
+  renderSignalLog();
+}
+
+function renderKPIs(){
+  document.getElementById('admin-kpis').innerHTML=`
+    <div class="status-metric">
+      <div class="sm-val">183</div>
+      <div class="sm-lbl">Total AI Decisions Today</div>
+      <div class="sm-delta up">↑ 13% vs yesterday</div>
+    </div>
+    <div class="status-metric">
+      <div class="sm-val">8s</div>
+      <div class="sm-lbl">Avg Complaint Resolution</div>
+      <div class="sm-delta up">↓ 3s faster than yesterday</div>
+    </div>
+    <div class="status-metric">
+      <div class="sm-val">$48.2k</div>
+      <div class="sm-lbl">Margin Recovered Today</div>
+      <div class="sm-delta up">↑ $6.2k vs yesterday</div>
+    </div>
+    <div class="status-metric">
+      <div class="sm-val">127 kg</div>
+      <div class="sm-lbl">CO₂ Saved Today</div>
+      <div class="sm-delta neu">via Cosmic Nexus donations</div>
+    </div>
+  `;
+}
+
+function switchAgentTab(id,btn){
+  document.querySelectorAll('.agent-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.agent-tab-content').forEach(c=>c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('agtab-'+id).classList.add('active');
+}
+
+function renderResolutionChart(){
+  const data=hourlyResolution;
+  const maxCount=Math.max(...data.map(d=>d.count));
+  const W=800,H=190,padL=32,padR=12,padT=22,padB=50;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const barW=plotW/data.length;
+  const colorFn=s=>s<=9?'var(--success)':s<=14?'var(--warning)':'var(--danger)';
+
+  const gridLines=[0,0.25,0.5,0.75,1].map(frac=>{
+    const y=padT+plotH*(1-frac);
+    const val=Math.round(frac*maxCount);
+    return `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--border)" stroke-width="1" ${frac>0?'stroke-dasharray="4,3"':''}/>
+            <text x="${padL-5}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--text-secondary)">${val}</text>`;
+  }).join('');
+
+  const bars=data.map((d,i)=>{
+    const x=padL+i*barW;
+    const bx=x+barW*0.15, bw=barW*0.7;
+    const bh=(d.count/maxCount)*plotH;
+    const by=padT+plotH-bh;
+    const col=colorFn(d.avgSec);
+    return `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="3" fill="${col}" opacity="0.85"/>
+            <text x="${bx+bw/2}" y="${by-5}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text)">${d.count}</text>
+            <text x="${bx+bw/2}" y="${H-padB+15}" text-anchor="middle" font-size="10" fill="var(--text-secondary)">${d.hour}</text>
+            <text x="${bx+bw/2}" y="${H-padB+30}" text-anchor="middle" font-size="9" fill="${col}">${d.avgSec}s</text>`;
+  }).join('');
+
+  document.getElementById('admin-resolution-chart').innerHTML=
+    `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;">${gridLines}${bars}</svg>`;
+}
+
 function renderSignalLog(){
   document.getElementById('signal-log').innerHTML=signalLog.map(s=>`
     <div class="signal-entry">
@@ -1056,10 +1228,10 @@ const walkthroughs = {
     { sel:'.topnav .logo', text:"You're ready! Two SKUs need your attention right now ✓", done:true }
   ],
   admin:[
-    { sel:'.agent-cards', text:'This is your system overview — all three CosmicTrust agents in one place.' },
-    { sel:'.agent-card', text:"The summary cards show today's activity across TrustGate, CosmicCare, and DeadStock Zero at a glance." },
+    { sel:'.status-strip', text:'This status bar shows the four most important cross-agent metrics at a glance — total decisions, resolution speed, margin recovered, and carbon impact.' },
+    { sel:'.agent-tab-panel', text:'Click any tab to see that agent\'s detailed stats. TrustGate, CosmicCare, and DeadStock Zero each show their key numbers here without cluttering the view.' },
+    { sel:'.chart-panel', text:'The resolution chart shows how fast CosmicCare resolved complaints each hour today — bar color indicates average AI response time.' },
     { sel:'.signal-panel', text:'The signal flow panel shows how your agents are communicating with each other in real time.' },
-    { sel:'.brief-card', text:'The weekly brief gives you a plain-English summary ready to share with leadership.' },
     { sel:'.topnav .logo', text:"You're ready! Your system is live ✓", done:true }
   ]
 };
