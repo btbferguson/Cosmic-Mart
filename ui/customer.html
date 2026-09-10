@@ -221,7 +221,6 @@ function greet() {
   $messages.innerHTML = '';
   const c = currentCustomer();
   addMsg(`Hi ${c ? c.customer_name.split(' ')[0] : 'there'}! You're chatting with Cosmic Mart support. How can I help you today?`, 'bot');
-  addMsg(`Tip: ask a question, or paste the seeded complaint. Seeded: "${c ? c.seeded_message : ''}"`, 'system');
 }
 
 /* ── send ── */
