@@ -142,6 +142,25 @@ Point it at other SKUs (both need a complaint on file):
 npm run demo -- --sku SKU-1001 --second SKU-1006
 ```
 
+### The web UI
+
+```bash
+npm start
+```
+
+Serves two pages on the port `server.js` reports:
+
+| Page | What it is |
+|---|---|
+| `/` | Employee portal — status strip, tabbed agent panels, live signals |
+| `/customer` | Customer-facing chat |
+
+The chat routes a message through a classifier first. A question goes straight
+to the Q&A sub-agent; a **complaint lands in the review queue and waits for a
+human to approve it** before Agent 2 — which holds the $500 refund authority —
+is ever invoked. That gate is enforced in `server.js`, in the function, not in a
+prompt.
+
 ### One agent at a time
 
 ```bash
@@ -226,6 +245,7 @@ New tests go in `tests/`. `npm test` picks them up automatically.
 | `npm run check` | Verify Node, deps, keys and endpoints |
 | `npm test` | 63 offline tests |
 | `npm run ping` | One real Anthropic call |
+| `npm start` | Web UI — employee portal at `/`, customer chat at `/customer` |
 | `npm run demo` | **All three agents, three rounds, four connections** |
 | `npm run agent1` | Agent 1 across three decision paths |
 | `npm run agent3 -- --help` | Agent 3's full flag list |
@@ -246,6 +266,7 @@ src/
     agent3_tools.js        Agent 3's data lookups
   prompts/          System prompts, kept apart from logic
   tools/            Agent 2's action tools (refund, replacement, fee waiver)
+  customer/         Customer-chat sub-agents (classifier, Q&A)
   data/             The four Cosmic Mart CSVs + the loader
 harness/
   demo.js           The multi-round orchestrator
@@ -254,6 +275,7 @@ harness/
   check_env.js      npm run check
   ping.js           npm run ping
   seedSignals.js    Stands in for Agents 1 & 2 when running Agent 3 alone
+server.js           Express server behind `npm start`, with the human gate
 fixtures/           Recorded API responses (gitignored)
 tests/              Offline test suites
 ```
@@ -300,6 +322,54 @@ prefix):
 ```bash
 $env:COSMIC_LLM_MODE="record"; npm run agent3 -- --all
 ```
+
+---
+
+## Optional: the Kaggle sample dataset
+
+There is an Amazon India products/reviews dataset the team pulled for reference.
+It is **gitignored and not used by any code** — nothing breaks without it. Fetch
+it only if you want a larger corpus to experiment against.
+
+```bash
+pip install kagglehub
+```
+
+```bash
+python -c "import kagglehub; print(kagglehub.dataset_download('karkavelrajaj/amazon-sales-dataset'))"
+```
+
+That prints a path under `~/.cache/kagglehub/...`. It needs no Kaggle account —
+the dataset is public. Copy it in if you want it alongside the Cosmic Mart data:
+
+```bash
+cp ~/.cache/kagglehub/datasets/karkavelrajaj/amazon-sales-dataset/versions/1/amazon.csv src/data/agent3/amazon_sales_dataset.csv
+```
+
+Windows PowerShell:
+
+```bash
+New-Item -ItemType Directory -Force src\datagent3; Copy-Item "$env:USERPROFILE\.cache\kagglehub\datasets\karkavelrajajmazon-sales-datasetersionsmazon.csv" src\datagent3mazon_sales_dataset.csv
+```
+
+Source: [kaggle.com/datasets/karkavelrajaj/amazon-sales-dataset](https://www.kaggle.com/datasets/karkavelrajaj/amazon-sales-dataset)
+
+**Know what it is and is not before building on it.** 1,465 rows, 16 columns,
+4.6 MB. It has `product_id`, `category`, prices in rupees, `rating`,
+`rating_count`, `about_product` (a specs blob) and `review_content` (roughly
+eight reviews comma-joined per row).
+
+It has **no `sku_id`, no stock levels, no sales velocity and no dates**, so it
+cannot be joined to the Cosmic Mart CSVs and cannot drive Agent 3's dead-stock
+triage — you would have to synthesise every field the agent actually reasons
+over. Where it is genuinely useful is Agent 1 and Agent 2: `about_product` is
+real spec text to check claims against, and `review_content` is real complaint
+language. Categories cover gadgets and home/lifestyle only; there is no fashion.
+
+Also worth knowing: 114 of the 1,465 `product_id` values are duplicated, one
+row has `|` where a rating should be, and two have a blank `rating_count`.
+Prices carry `₹` and thousands separators, so everything needs cleaning before
+arithmetic.
 
 ---
 
