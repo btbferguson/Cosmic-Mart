@@ -294,6 +294,28 @@
   .flow-agent.trustgate{color:var(--primary);border-color:var(--primary);}
   .flow-agent.cosmiccare{color:var(--teal);border-color:var(--teal);}
   .flow-agent.deadstock{color:var(--success);border-color:var(--success);}
+  /* Ask DeadStock Zero — chat inside the SKU side panel */
+  .ds-step{font-size:13px;color:var(--text-muted,#6b7280);padding:2px 0;}
+.ds-step-active{color:var(--text,#111827);font-weight:600;}
+.ds-ai-head{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.ds-ai-head h3{margin:0;}
+.ds-cached{margin-top:10px;font-size:12px;color:var(--text-muted,#6b7280);}
+.ds-chat-log{max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+  .ds-chat-log:empty{display:none;}
+  .ds-msg{padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.55;max-width:92%;}
+  .ds-msg-you{align-self:flex-end;background:#111827;color:#fff;}
+  .ds-msg-agent{align-self:flex-start;background:#f3f4f6;color:#111827;}
+  .ds-consult{align-self:flex-start;max-width:92%;border:1px dashed #d1d5db;background:#fafafa;
+    border-radius:10px;padding:8px 11px;font-size:12px;line-height:1.5;color:#374151;}
+  .ds-consult span{color:#6b7280;}
+  .ds-chat-suggest{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}
+  .ds-chip{border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:5px 11px;
+    font-size:12px;color:#4b5563;cursor:pointer;}
+  .ds-chip:hover{color:#111827;border-color:#d1d5db;}
+  .ds-chat-row{display:flex;gap:8px;margin-top:10px;}
+  .ds-chat-input{flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:9px 11px;font-size:13px;
+    font-family:inherit;}
+  .ds-chat-input:focus{outline:none;border-color:#9ca3af;}
   .flow-arrows{display:flex;align-items:center;gap:6px;color:var(--text-secondary);font-size:12px;}
   .flow-arrow{font-size:14px;color:var(--primary);} 
   .flow-types{display:flex;gap:8px;flex-wrap:wrap;}
@@ -855,12 +877,13 @@ function initScreen(role){
   if(role==='trustgate'){
     document.getElementById('tg-detail').innerHTML=`<div class="detail-empty"><span class="glyph">📋</span>Select a listing to see the full assessment</div>`;
     loadTgListings(); // async: fetches /api/listings, then calls renderListings()
+    loadDsInventory(); // async: fetches /api/inventory, then calls renderDeadstock()
   }
   if(role==='cosmiccare'){
     renderComplaints();
     document.getElementById('cc-detail').innerHTML=`<div class="detail-empty"><span class="glyph">💬</span>Select a complaint to see the drafted resolution</div>`;
   }
-  if(role==='deadstock'){ renderDeadstock(); }
+  if(role==='deadstock'){ loadDsInventory(); }
   if(role==='admin'){ renderAdminDashboard(); }
 }
 
@@ -886,6 +909,21 @@ function showToast(msg){
 }
 
 /* ============ TRUSTGATE ============ */
+let dsInventory=[];   // populated from /api/inventory; falls back to mockInventory
+
+/**
+ * Load inventory from the API. Same shape the table already expected, so
+ * renderDeadstock() needed no restructuring.
+ */
+async function loadDsInventory(){
+  try{
+    dsInventory=await fetch('/api/inventory').then(r=>r.json());
+  } catch {
+    dsInventory=[...mockInventory]; // fallback if server unreachable
+  }
+  renderDeadstock();
+}
+
 async function loadTgListings(){
   try{
     tgListings=await fetch('/api/listings').then(r=>r.json());
@@ -1243,10 +1281,26 @@ async function syncComplaints(){
     const msg=JSON.parse(e.data);
     if(msg.type==='complaintQueued'){ upsertLiveCard(msg.card); if(currentRole==='cosmiccare')showToast('New complaint from '+msg.card.customer_name); }
     else if(msg.type==='complaintResolved'){ upsertLiveCard({...msg.card,resolution:msg.resolution,status:msg.verdict==='approved'?'resolved':'rejected'}); }
+    // Agent 3 narrating its own work while the panel waits on it.
+    else if(msg.type==='agent3Progress'){ dsProgress(msg.sku_id, msg.step); }
   };
 })();
 
 /* ============ DEADSTOCK ZERO ============ */
+
+/**
+ * Steps Agent 3 has reported for the SKU currently open, in order.
+ * Reset when a run starts so a re-run does not stack onto the old trace.
+ */
+const dsSteps = {};
+function dsProgress(id, step){
+  const body = document.getElementById(`ds-ai-body-${id}`);
+  if(!body) return;                       // panel closed, or a different SKU
+  (dsSteps[id] = dsSteps[id] || []).push(step);
+  body.innerHTML = dsSteps[id].map(t=>`<div class="ds-step">✓ ${t}</div>`).join('')
+    + `<div class="ds-step ds-step-active">Deciding…</div>`;
+}
+
 function riskPill(level){
   if(level==='high')return `<span class="badge badge-red">High</span>`;
   if(level==='medium')return `<span class="badge badge-amber">Medium</span>`;
@@ -1263,10 +1317,18 @@ function dosClass(days){
   return 'dos-green';
 }
 function renderDeadstock(){
-  const highRisk=mockInventory.filter(i=>i.risk_level==='high').length;
+  const inv = dsInventory.length ? dsInventory : mockInventory;
+  const highRisk=inv.filter(i=>i.risk_level==='high').length;
+    // Capital sitting in high-risk stock, from the real rows rather than a
+    // hardcoded figure. Cosmic Nexus totals stay illustrative - the programme
+    // has no history in a fresh session.
+  const atRisk = inv
+    .filter(i=>i.risk_level==='high')
+    .reduce((sum,i)=>sum + (i.stock||0) * (i.our_price||0), 0);
+  const spikes = inv.filter(i=>i.return_spike).length;
   document.getElementById('ds-stats').innerHTML=`
     <div class="stat-card acc-red"><div class="stat-num">${highRisk}</div><div class="stat-label">SKUs at High Risk</div></div>
-    <div class="stat-card acc-amber"><div class="stat-num">$18,400</div><div class="stat-label">Margin at Risk</div></div>
+      <div class="stat-card acc-amber"><div class="stat-num">$${Math.round(atRisk).toLocaleString()}</div><div class="stat-label">Capital at Risk${spikes?` · ${spikes} return spike${spikes>1?'s':''}`:''}</div></div>
     <div class="stat-card acc-green"><div class="stat-num">$48,200</div><div class="stat-label">Margin Recovered</div></div>
     <div class="stat-card acc-blue carbon-card">
       <div class="stat-label">🌿 Cosmic Nexus Impact</div>
@@ -1277,7 +1339,7 @@ function renderDeadstock(){
       </div>
     </div>
   `;
-  document.getElementById('ds-tbody').innerHTML=mockInventory.map(i=>`
+  document.getElementById('ds-tbody').innerHTML=inv.map(i=>`
     <tr onclick="openSkuDetail('${i.sku_id}')">
       <td class="sku-name-cell">${i.sku_name}</td>
       <td>${i.category}</td>
@@ -1291,55 +1353,182 @@ function renderDeadstock(){
     </tr>
   `).join('');
 }
-function openSkuDetail(id){
-  dsActiveId=id;
-  const i=mockInventory.find(x=>x.sku_id===id);
-  openPanel(`
-    <div class="side-panel-inner">
-      <div class="side-panel-header">
-        <div>
-          <h2 style="font-size:20px;margin-bottom:8px;">${i.sku_name}</h2>
-          <div class="detail-badges"><span class="pill">${i.category}</span><span class="pill">${i.season}</span>${riskPill(i.risk_level)}</div>
+  /**
+   * Open a SKU and actually run DeadStock Zero on it.
+   *
+   * The panel renders immediately from the inventory row, then swaps in the
+   * agent's verdict when it returns. Running the agent on open (rather than
+   * showing a stored guess) is what makes the assessment real: it reads the
+   * signals TrustGate and CosmicCare have left, and publishes an advisory back.
+   */
+  async function openSkuDetail(id){
+    dsActiveId=id;
+    const inv = dsInventory.length ? dsInventory : mockInventory;
+    const i = inv.find(x=>x.sku_id===id);
+    if(!i) return;
+
+    openPanel(`
+      <div class="side-panel-inner">
+        <div class="side-panel-header">
+          <div>
+            <h2 style="font-size:20px;margin-bottom:8px;">${i.sku_name}</h2>
+            <div class="detail-badges"><span class="pill">${i.category}</span><span class="pill">${i.season}</span>${riskPill(i.risk_level)}</div>
+          </div>
+          <button class="side-panel-close" onclick="closePanel()">✕</button>
         </div>
-        <button class="side-panel-close" onclick="closePanel()">✕</button>
-      </div>
 
-      <div class="stats-grid">
-        <div class="stat-cell"><div class="lbl">Current stock</div><div class="val">${i.stock}</div></div>
-        <div class="stat-cell"><div class="lbl">Sales velocity</div><div class="val">${i.velocity}/wk</div></div>
-        <div class="stat-cell"><div class="lbl">Days of supply</div><div class="val ${dosClass(i.days_of_supply)}">${i.days_of_supply}</div></div>
-        <div class="stat-cell"><div class="lbl">Competitor price</div><div class="val">$${i.competitor_price}</div></div>
-        <div class="stat-cell"><div class="lbl">Return spike</div><div class="val">${i.return_spike?`<span class="badge badge-red">Yes</span>`:'No'}</div></div>
-        <div class="stat-cell"><div class="lbl">Season</div><div class="val">${i.season}</div></div>
-      </div>
+        <div class="stats-grid">
+          <div class="stat-cell"><div class="lbl">Current stock</div><div class="val">${(i.stock||0).toLocaleString()}</div></div>
+          <div class="stat-cell"><div class="lbl">Sales velocity</div><div class="val">${i.velocity}/wk</div></div>
+          <div class="stat-cell"><div class="lbl">Days of supply</div><div class="val ${dosClass(i.days_of_supply)}">${i.days_of_supply}</div></div>
+          <div class="stat-cell"><div class="lbl">Our price</div><div class="val">$${i.our_price ?? '—'}</div></div>
+          <div class="stat-cell"><div class="lbl">Competitor price</div><div class="val">$${i.competitor_price}</div></div>
+          <div class="stat-cell"><div class="lbl">Return rate</div><div class="val">${i.return_rate_pct ?? '—'}%</div></div>
+        </div>
 
-      <div class="ai-card" style="margin-top:20px;">
-        <h3>DeadStock Zero AI Assessment</h3>
-        <div style="font-size:17px;font-weight:700;margin-top:4px;margin-bottom:6px;">${i.intervention}</div>
-        <div class="reason-text">${i.reason}</div>
-        <div class="recovery-text">${i.estimated_recovery}</div>
+        ${i.notes?`<div class="label-sm" style="margin-top:16px;">Analyst notes</div><div class="brief-box">${i.notes}</div>`:''}
+
+        <div class="ai-card" style="margin-top:20px;" id="ds-ai-${id}">
+          <h3>DeadStock Zero AI Assessment</h3>
+          <div class="reason-text" id="ds-ai-body-${id}">Running the agent…</div>
+        </div>
+
+        <div class="execute-row" id="ds-execute-${id}"></div>
+
+        <!-- Chat with the agent about this SKU. It can consult the other two. -->
+        <div class="ai-card" style="margin-top:20px;">
+          <h3>💬 Ask DeadStock Zero</h3>
+          <div class="reason-text" style="margin-bottom:10px;">
+            Ask about this decision. The agent can consult TrustGate or CosmicCare if the
+            answer depends on what they know.
+          </div>
+          <div id="ds-chat-log-${id}" class="ds-chat-log"></div>
+          <div id="ds-chat-suggest-${id}" class="ds-chat-suggest">
+            <button class="ds-chip" onclick="dsAsk('${id}','Why this intervention and not repricing?')">Why not reprice?</button>
+            <button class="ds-chip" onclick="dsAsk('${id}','What did the other agents tell you?')">What did the other agents say?</button>
+            <button class="ds-chip" onclick="dsAsk('${id}','What happens if we do nothing?')">What if we do nothing?</button>
+          </div>
+          <div class="ds-chat-row">
+            <input id="ds-chat-input-${id}" class="ds-chat-input" placeholder="Ask DeadStock Zero…"
+                   onkeydown="if(event.key==='Enter'){dsAsk('${id}', this.value); this.value='';}">
+            <button class="btn btn-primary" onclick="const el=document.getElementById('ds-chat-input-${id}'); dsAsk('${id}', el.value); el.value='';">Send</button>
+          </div>
+        </div>
+      </div>
+    `);
+
+    // Hand off to the agent. Separate function so the Re-run button can call it
+    // again without rebuilding the whole panel.
+    runDsAssessment(id, false);
+  }
+
+  /**
+   * Run (or re-run) Agent 3 for one SKU and render its verdict into the panel.
+   *
+   * The first open hits the live agent; reopening the same row serves the
+   * cached assessment, so it comes back instantly. `refresh` forces a real run.
+   */
+  async function runDsAssessment(id, refresh){
+    dsSteps[id] = [];
+    const body = document.getElementById(`ds-ai-body-${id}`);
+    if(body) body.innerHTML = `<div class="ds-step ds-step-active">DeadStock Zero is reading the SKU…</div>`;
+    try{
+      const a = await fetch(`/api/inventory/${id}/assess${refresh?'?refresh=1':''}`, {method:'POST'}).then(r=>r.json());
+      if(a.error) throw new Error(a.error);
+
+      const consulted = (a.tool_calls||[]).filter(t=>t.agent).map(t=>t.name);
+      const signalBits = [];
+      if(a.signals?.return_spike) signalBits.push('return spike from CosmicCare');
+      if(a.signals?.listing_decision) signalBits.push(`listing ${a.signals.listing_decision} by TrustGate`);
+
+      document.getElementById(`ds-ai-${id}`).innerHTML = `
+        <div class="ds-ai-head">
+          <h3>DeadStock Zero AI Assessment</h3>
+          <button class="ds-chip" onclick="runDsAssessment('${id}', true)">↻ Re-run</button>
+        </div>
+        <div style="font-size:17px;font-weight:700;margin-top:4px;margin-bottom:6px;">${a.intervention}</div>
+        <div class="reason-text">${a.reason}</div>
+        <div class="recovery-text">${a.estimated_recovery}</div>
+        ${signalBits.length?`<div class="label-sm">Signals it read</div><div class="brief-box">${signalBits.join(' · ')}</div>`:''}
+        ${consulted.length?`<div class="label-sm">Agents consulted</div><div class="brief-box">${consulted.join(', ')}</div>`:''}
+        ${a.guardrail?`<div class="label-sm">Guardrail</div><div class="brief-box">Code overrode the model, which chose "${a.guardrail.model_chose}". ${a.guardrail.rule}</div>`:''}
         <div class="label-sm">Leadership Brief</div>
-        <div class="brief-box">${i.brief_line}</div>
-      </div>
+        <div class="brief-box">${a.brief_line}</div>
+        ${a.cached
+          ? `<div class="ds-cached">Assessment already on record — re-run to ask the agent again.</div>`
+          : (dsSteps[id]||[]).length
+            ? `<div class="ds-cached">${dsSteps[id].join(' · ')}</div>`
+            : ''}
+      `;
 
-      <div class="execute-row" id="ds-execute-${i.sku_id}">
-        <select class="dropdown-select" id="ds-choice-${i.sku_id}">
-          <option value="Reprice">Reprice</option>
-          <option value="Redistribute" ${i.intervention==='Redistribute'?'selected':''}>Redistribute</option>
-          <option value="Bundle">Bundle</option>
-          <option value="Cosmic Nexus Donation" ${i.intervention==='Cosmic Nexus Donation'?'selected':''}>Cosmic Nexus Donation</option>
-          <option value="Supplier Return">Supplier Return</option>
+      document.getElementById(`ds-execute-${id}`).innerHTML = `
+        <select class="dropdown-select" id="ds-choice-${id}">
+          ${['Reprice','Redistribute','Bundle','Cosmic Nexus Donation','Supplier Return'].map(o=>
+            `<option value="${o}" ${a.intervention.toLowerCase()===o.toLowerCase()?'selected':''}>${o}</option>`
+          ).join('')}
         </select>
-        <button class="btn btn-primary btn-lg" onclick="executeIntervention('${i.sku_id}', document.getElementById('ds-choice-${i.sku_id}').value)">✓ Execute Intervention</button>
-      </div>
+        <button class="btn btn-primary btn-lg" onclick="executeIntervention('${id}', document.getElementById('ds-choice-${id}').value)">✓ Execute Intervention</button>
+      `;
 
-      ${i.return_spike?`
-      <div class="return-signal">
-        ⚠ Signal from CosmicCare: A return spike was flagged for this SKU by the customer support team. Repricing is not recommended — trust issue detected upstream.
-      </div>`:''}
-    </div>
-  `);
-}
+      // Keep the table in step with what the agent just decided.
+      const row = (dsInventory.length?dsInventory:mockInventory).find(x=>x.sku_id===id);
+      if(row){ row.intervention=a.intervention; row.risk_level=a.risk_level; row.status='assessed'; renderDeadstock(); }
+    } catch(err){
+      document.getElementById(`ds-ai-body-${id}`).innerHTML =
+        `Could not reach DeadStock Zero: ${err.message}`;
+      document.getElementById(`ds-execute-${id}`).innerHTML =
+        `<div class="decision-recorded">Assessment unavailable — is the server running?</div>`;
+    }
+  }
+
+  /** Chat history per SKU, so reopening a panel does not lose the thread. */
+  const dsChats = {};
+
+  /**
+   * Send a question to DeadStock Zero about one SKU.
+   *
+   * Peer consultations come back in the response and are rendered as their own
+   * rows, so the reviewer sees this agent asking another one.
+   */
+  async function dsAsk(id, question){
+    const q = (question||'').trim();
+    if(!q) return;
+
+    const log = document.getElementById(`ds-chat-log-${id}`);
+    if(!log) return;
+    const suggest = document.getElementById(`ds-chat-suggest-${id}`);
+    if(suggest) suggest.style.display='none';
+
+    dsChats[id] = dsChats[id] || [];
+    dsChats[id].push({role:'user', content:q});
+
+    log.innerHTML += `<div class="ds-msg ds-msg-you">${q}</div>`;
+    log.innerHTML += `<div class="ds-msg ds-msg-agent" id="ds-thinking-${id}">Thinking, and may consult another agent…</div>`;
+    log.scrollTop = log.scrollHeight;
+
+    try{
+      const r = await fetch('/api/agent/chat', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({agent:'agent3', sku_id:id, messages:dsChats[id]})
+      }).then(r=>r.json());
+
+      document.getElementById(`ds-thinking-${id}`)?.remove();
+      if(r.error) throw new Error(r.error);
+
+      const NAMES={agent1:'TrustGate',agent2:'CosmicCare',agent3:'DeadStock Zero'};
+      for(const c of (r.consultations||[])){
+        log.innerHTML += `<div class="ds-consult">⇄ asked <b>${NAMES[c.consulted]||c.consulted}</b><br><span>${c.summary}</span></div>`;
+      }
+      log.innerHTML += `<div class="ds-msg ds-msg-agent">${r.answer}</div>`;
+      dsChats[id].push({role:'assistant', content:r.answer});
+    } catch(err){
+      document.getElementById(`ds-thinking-${id}`)?.remove();
+      log.innerHTML += `<div class="ds-msg ds-msg-agent">${err.message}</div>`;
+    }
+    log.scrollTop = log.scrollHeight;
+  }
+
 function executeIntervention(id,choice){
   const i=mockInventory.find(x=>x.sku_id===id);
   i.status='executed';

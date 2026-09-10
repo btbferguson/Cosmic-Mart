@@ -31,8 +31,18 @@ import { TOOL_DEFS, executeTool } from './agent3_tools.js';
 import { agentToolsFor, callAgentTool, isAgentTool } from './registry.js';
 import { SYSTEM_PROMPT, RESPONSE_FORMAT, buildUserPrompt } from '../prompts/prompt_agent3.js';
 
-/** Stop the model looping forever on tool calls. */
-const MAX_TOOL_TURNS = 5;
+/**
+ * Stop the model looping forever on tool calls.
+ *
+ * One round is the useful default. GLM asks for everything it wants in a single
+ * parallel batch, so a second investigation turn does not fetch anything new -
+ * it just re-narrates the results in prose that the decision call then reasons
+ * over again from scratch. Measured on SKU-1006: that redundant turn cost 13.6s
+ * of a 24.6s assessment and changed the verdict not at all.
+ *
+ * Raise it for a SKU where a tool result genuinely raises a new question.
+ */
+const MAX_TOOL_TURNS = 1;
 
 /**
  * What Agent 3 can reach for: its own read-only data lookups, plus Agent 1 and
@@ -101,9 +111,10 @@ export function applyGuardrails(decision, signals) {
  * @param {object}   [options]
  * @param {Function} [options.onEvent] progress callback for the CLI - receives
  *                                     {type:'thinking'|'tool'|'answer', ...}
+ * @param {number}   [options.maxToolTurns] investigation rounds before deciding
  * @returns {Promise<object>} the validated, guardrailed decision plus a trace
  */
-export async function assessSku(skuId, { onEvent = () => {} } = {}) {
+export async function assessSku(skuId, { onEvent = () => {}, maxToolTurns = MAX_TOOL_TURNS } = {}) {
   const sku = getEnrichedSku(skuId);
   if (!sku) throw new Error(`Unknown SKU: ${skuId}`);
 
@@ -128,7 +139,7 @@ export async function assessSku(skuId, { onEvent = () => {} } = {}) {
   // same turn as tools makes the model emit the object immediately instead of
   // calling anything - which is how you end up with a classifier wearing an
   // agent's clothes.
-  for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
+  for (let turn = 0; turn < maxToolTurns; turn++) {
     const response = await callModel({ agent: 'agent3', messages, tools: ALL_TOOLS });
     account(response);
     trace.turns++;

@@ -23,10 +23,15 @@ import { fileURLToPath } from 'node:url';
 import { classify } from './src/customer/classifier.js';
 import { answer } from './src/customer/qa.js';
 import { resolve, loadComplaints } from './src/agents/agent2_resolution.js';
-import { enqueueForReview, resolveReview } from './src/state.js';
-import { buildListingInput } from './src/agents/registry.js';
+import { enqueueForReview, resolveReview, sharedState } from './src/state.js';
+import {
+  buildListingInput,
+  agentToolsForAnthropic,
+  callAgentTool,
+} from './src/agents/registry.js';
+import { callClaude, textOf } from './src/llm.js';
 import { checkListing } from './src/agents/agent1_factchecker.js';
-import { loadListings, loadProducts } from './src/data/loadData.js';
+import { loadInventory, loadListings, loadProducts } from './src/data/loadData.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const UI_DIR = path.join(ROOT, 'ui');
@@ -252,6 +257,283 @@ const DECISION_TO_STATUS = { approved: 'approved', escalate: 'needs_review', 'au
 const DECISION_TO_AI    = { approved: 'approved', escalate: 'escalate', 'auto-blocked': 'blocked' };
 
 /** All listings from the CSV, shaped for the TrustGate queue. No AI calls. */
+/**
+ * Inventory for the DeadStock Zero table.
+ *
+ * Shaped to match what ui/index.html already renders (sku_name, velocity,
+ * return_spike, ...) so the screen needed no restructuring - only a fetch in
+ * place of the hardcoded mockInventory array.
+ *
+ * risk_level here is derived from days of supply alone, as a cheap pre-sort for
+ * the table. It is NOT the agent's verdict: Agent 3 decides that, and only when
+ * a reviewer opens the row.
+ */
+/**
+ * Chat with an agent about a SKU.
+ *
+ * Keeps conversation history AND hands the agent its peer-consultation tools,
+ * so mid-answer it can go and ask another agent something. Those consultations
+ * come back in the response so the UI can show them - a reviewer watches one
+ * agent ask another rather than taking the handoff on faith.
+ *
+ * Read-only with respect to decisions: the peer tools report state, they do not
+ * re-run an agent or spend money. A reviewer can interrogate freely.
+ */
+app.post('/api/agent/chat', async (req, res) => {
+  const { agent = 'agent3', sku_id, messages } = req.body ?? {};
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'a non-empty messages array is required' });
+  }
+
+  const PERSONAS = {
+    agent1: {
+      name: 'TrustGate',
+      role: 'the pre-publication listing compliance checker',
+      boss: 'a Listings Reviewer',
+      peers: 'CosmicCare (customer resolution) and DeadStock Zero (inventory recovery)',
+    },
+    agent2: {
+      name: 'CosmicCare',
+      role: 'the customer resolution agent, with authority to refund up to $500',
+      boss: 'a Customer Service representative',
+      peers: 'TrustGate (listing compliance) and DeadStock Zero (inventory recovery)',
+    },
+    agent3: {
+      name: 'DeadStock Zero',
+      role: 'the inventory recovery agent',
+      boss: 'an Inventory Manager',
+      peers: 'TrustGate (listing compliance) and CosmicCare (customer resolution)',
+    },
+  };
+
+  const persona = PERSONAS[agent];
+  if (!persona) return res.status(400).json({ error: `Unknown agent ${agent}` });
+
+  let facts = '';
+  if (sku_id) {
+    const row = loadInventory().find((r) => r.sku_id === sku_id);
+    const listing = loadListings().find((r) => r.sku_id === sku_id);
+    const product = loadProducts().find((r) => r.sku_id === sku_id);
+    const decision = [...sharedState.listingDecisionLog].reverse().find((d) => d.sku_id === sku_id);
+    const advisory = [...sharedState.inventoryAdvisoryLog].reverse().find((a) => a.sku_id === sku_id);
+    const patterns = sharedState.complaintPatternLog.filter((c) => c.sku_id === sku_id);
+
+    facts = `
+Facts for ${sku_id} - ${row?.product_name ?? 'unknown'}:
+  stock ${row?.current_stock ?? '?'} units, ${row?.sales_velocity_weekly ?? '?'}/week, ${row?.days_of_supply ?? '?'} days of supply
+  ${row?.season_relevance ?? ''}, return rate ${row?.return_rate_pct ?? '?'}%
+  our price ${row?.our_price ?? '?'} vs competitor ${row?.competitor_price ?? '?'}
+  analyst notes: ${row?.notes ?? 'none'}
+  specification: ${product?.specs ?? 'none on file'}
+  customer-facing claims: ${listing?.listing_claims ?? 'none on file'}
+  your advisory on record: ${advisory ? advisory.intervention + ' - ' + advisory.note : 'none yet'}
+  TrustGate decision on record: ${decision ? decision.decision + ' (' + decision.reason + ')' : 'none'}
+  CosmicCare complaint patterns: ${patterns.map((c) => c.complaint_pattern_tag).join(', ') || 'none'}
+  return spike flagged: ${Boolean(sharedState.returnSpikeFlags[sku_id])}
+`;
+  }
+
+  const system = `You are ${persona.name}, ${persona.role} at Cosmic Mart. You are talking to ${persona.boss} who supervises you and is reviewing your work.
+
+You can consult ${persona.peers} using your tools. Do that whenever the answer depends on what another agent knows or decided, rather than speculating. Say what you learned from them.
+
+Rules:
+- Two to four sentences. Your supervisor is reading between tasks.
+- Ground every claim in the facts below or in what a peer agent tells you. Never invent a figure.
+- If you were wrong, say so plainly. You are explaining, not defending.
+- If the data cannot answer the question, say what is missing.
+- No markdown formatting.
+${facts}`;
+
+  const tools = agentToolsForAnthropic(agent);
+  const consultations = [];
+  let conversation = messages.map((m) => ({ role: m.role, content: m.content }));
+
+  try {
+    for (let turn = 0; turn < 4; turn++) {
+      const response = await callClaude({
+        agent,
+        system,
+        messages: conversation,
+        tools: tools.length ? tools : undefined,
+        maxTokens: 700,
+      });
+
+      if (response.stop_reason !== 'tool_use') {
+        return res.json({ ok: true, agent, answer: textOf(response).trim(), consultations });
+      }
+
+      conversation = [...conversation, { role: 'assistant', content: response.content }];
+
+      const results = [];
+      for (const block of response.content) {
+        if (block.type !== 'tool_use') continue;
+        const result = await callAgentTool(block.name, block.input, { stack: [agent] });
+        consultations.push({
+          tool: block.name,
+          consulted:
+            result.consulted ??
+            (block.name.includes('agent1') ? 'agent1' : block.name.includes('agent2') ? 'agent2' : 'agent3'),
+          summary:
+            result.error ??
+            result.summary ??
+            result.guidance ??
+            (result.decision ? result.decision + ' - ' + (result.reason ?? '') : JSON.stringify(result).slice(0, 160)),
+        });
+        results.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });
+      }
+      conversation = [...conversation, { role: 'user', content: results }];
+    }
+
+    res.json({
+      ok: true,
+      agent,
+      answer: 'I consulted other agents but ran out of turns. Ask again more narrowly.',
+      consultations,
+    });
+  } catch (err) {
+    res.status(502).json({ error: `${persona.name} could not answer: ${err.message}` });
+  }
+});
+
+app.get('/api/inventory', (_req, res) => {
+  const CATEGORY_LABEL = {
+    gadgets: 'Gadgets',
+    fashion: 'Fashion',
+    'home and lifestyle': 'Home & Lifestyle',
+  };
+
+  res.json(
+    loadInventory().map((row) => {
+      const advisory = [...sharedState.inventoryAdvisoryLog]
+        .reverse()
+        .find((a) => a.sku_id === row.sku_id);
+
+      return {
+        sku_id: row.sku_id,
+        sku_name: row.product_name,
+        category: CATEGORY_LABEL[row.product_category] ?? row.product_category,
+        stock: row.current_stock,
+        velocity: row.sales_velocity_weekly,
+        days_of_supply: row.days_of_supply,
+        season: row.season_relevance === 'seasonal' ? 'Seasonal' : 'Evergreen',
+        our_price: row.our_price,
+        competitor_price: row.competitor_price,
+        return_rate_pct: row.return_rate_pct,
+        // The real cross-agent signal, not a guess.
+        return_spike: Boolean(sharedState.returnSpikeFlags[row.sku_id]),
+        notes: row.notes,
+        risk_level: row.days_of_supply > 60 ? 'high' : row.days_of_supply >= 30 ? 'medium' : 'low',
+        // Populated only once Agent 3 has actually assessed this SKU.
+        intervention: advisory ? advisory.intervention : 'Not assessed',
+        reason: advisory ? advisory.note : null,
+        assessed: Boolean(advisory),
+        status: advisory ? 'assessed' : 'pending',
+      };
+    })
+  );
+});
+
+/**
+ * Run Agent 3 on one SKU. Called when a reviewer opens an inventory row.
+ *
+ * Runs in this process, so whatever the agent writes to shared state is
+ * immediately visible to the other agents and to the portal. It reads the
+ * signals Agents 1 and 2 have left, and publishes an advisory back to Agent 2.
+ */
+/**
+ * Assessments already produced, keyed by SKU.
+ *
+ * A reviewer opening the same row twice should not pay for the agent twice. The
+ * advisory is already on record in shared state, so re-running would spend a
+ * live model call to re-derive an answer we are holding. Pass ?refresh=1 to
+ * force a fresh run - that is what the Re-run button does.
+ */
+const assessmentCache = new Map();
+
+app.post('/api/inventory/:skuId/assess', async (req, res) => {
+  const { skuId } = req.params;
+  const row = loadInventory().find((r) => r.sku_id === skuId);
+  if (!row) return res.status(404).json({ error: `No inventory record for ${skuId}` });
+
+  const refresh = req.query.refresh === '1' || req.body?.refresh === true;
+  if (!refresh && assessmentCache.has(skuId)) {
+    return res.json({ ...assessmentCache.get(skuId), cached: true });
+  }
+
+  let assessment;
+  try {
+    const { assessSku } = await import('./src/agents/agent3_deadstock.js');
+    // Stream what the agent actually does, as it does it. The panel shows these
+    // instead of an indefinite spinner - the progress is real, not a
+    // pre-scripted animation, so an empty run shows an empty trace.
+    assessment = await assessSku(skuId, {
+      onEvent: (event) => {
+        const step =
+          event.type === 'tool'
+            ? `Reading ${event.name.replace(/^get_/, '').replace(/_/g, ' ')}`
+            : event.type === 'agentCall'
+              ? `Consulting ${event.name.includes('agent1') ? 'TrustGate' : 'CosmicCare'}`
+              : event.type === 'thinking'
+                ? 'Reasoning over the figures'
+                : null;
+        if (step) broadcast({ type: 'agent3Progress', sku_id: skuId, step });
+      },
+    });
+  } catch (err) {
+    return res.status(502).json({ error: `Agent 3 failed: ${err.message}` });
+  }
+
+  const { decision, signals, trace } = assessment;
+
+  broadcast({ type: 'agentRan', agent: 'agent3', sku_id: skuId, result: decision });
+
+  const payload = {
+    sku_id: skuId,
+    sku_name: row.product_name,
+    risk_level: decision.risk_level,
+    intervention: decision.intervention,
+    reason: decision.reason,
+    estimated_recovery: decision.estimated_recovery,
+    brief_line: decision.weekly_brief_line,
+    // Whether a guardrail overrode the model, so the UI can show it.
+    guardrail: decision.guardrail ?? null,
+    // What it read from the other two agents.
+    signals: {
+      return_spike: signals.return_spike_flag,
+      listing_decision: signals.listing_decision ? signals.listing_decision.decision : null,
+      listing_reason: signals.listing_decision ? signals.listing_decision.reason : null,
+    },
+    // Which tools it called, including any peer consultations.
+    tool_calls: trace.toolCalls.map((t) => ({ name: t.name, agent: Boolean(t.agent) })),
+    assessed: true,
+    status: 'assessed',
+  };
+
+  assessmentCache.set(skuId, payload);
+  res.json(payload);
+});
+
+/**
+ * The four cross-agent connections, as live counts. Feeds the signal-flow panel.
+ */
+app.get('/api/state', (_req, res) => {
+  res.json({
+    listingDecisions: sharedState.listingDecisionLog,
+    complaintPatterns: sharedState.complaintPatternLog,
+    returnSpikes: sharedState.returnSpikeFlags,
+    actions: sharedState.actionLedger,
+    inventoryAdvisories: sharedState.inventoryAdvisoryLog,
+    reviewQueue: sharedState.reviewQueue,
+    connections: {
+      'agent2->agent1': sharedState.complaintPatternLog.length,
+      'agent2->agent3': Object.values(sharedState.returnSpikeFlags).filter(Boolean).length,
+      'agent1->agent3': sharedState.listingDecisionLog.length,
+      'agent3->agent2': sharedState.inventoryAdvisoryLog.length,
+    },
+  });
+});
+
 app.get('/api/listings', (_req, res) => {
   const listings = loadListings();
   const products  = loadProducts();
